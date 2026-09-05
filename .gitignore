@@ -1,0 +1,99 @@
+# ==========================================
+# Operating System Files
+# ==========================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ==========================================
+# Editor & IDE Configurations
+# ==========================================
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.sublime-project
+*.sublime-workspace
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ==========================================
+# Environment & Secrets (Keep .env.example)
+# ==========================================
+.env
+.env.*
+!.env.example
+*.local
+
+# ==========================================
+# Frontend (Node / React / Vite)
+# ==========================================
+node_modules/
+frontend/node_modules/
+dist/
+dist-ssr/
+frontend/dist/
+frontend/dist-ssr/
+*.tsbuildinfo
+.npm/
+.eslintcache
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ==========================================
+# Backend (Python / FastAPI / Pytest)
+# ==========================================
+__pycache__/
+backend/**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Python Virtual Environments
+.venv/
+backend/.venv/
+env/
+backend/env/
+venv/
+backend/venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Testing, Lints & Coverage
+.pytest_cache/
+backend/.pytest_cache/
+.coverage
+backend/.coverage
+htmlcov/
+backend/htmlcov/
+.tox/
+.nox/
+
+# SQLite Databases & Local Storage Uploads
+*.sqlite
+*.sqlite3
+*.db
+backend/*.db
+nyayavault.db
+backend/nyayavault.db
+storage_data/
+backend/storage_data/
+backend/requirements1.txt
+
+# ==========================================
+# General Logs & Runtime
+# ==========================================
+*.log
+logs/

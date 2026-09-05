@@ -1,0 +1,192 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useApp } from '../context/AppContext';
+import {
+  PageHeader, Card, Button, IntegrityBadge, HashDisplay, Badge,
+  Alert, Spinner, formatDateTime,
+} from '../components/ui';
+import { ShieldCheck, AlertTriangle, RotateCcw, CheckCircle, XCircle, ExternalLink } from 'lucide-react';
+
+export default function Integrity() {
+  const { state, verifyIntegrity, simulateTampering, restoreOriginal } = useApp();
+  const navigate = useNavigate();
+  const [verifying, setVerifying] = useState(null); // docId being verified
+  const [verifyResults, setVerifyResults] = useState({}); // docId -> 'ok' | 'fail'
+
+  const handleVerify = async (docId) => {
+    setVerifying(docId);
+    try {
+      const res = await verifyIntegrity(docId);
+      setVerifyResults(r => ({ ...r, [docId]: res?.status === 'VERIFIED' ? 'ok' : 'fail' }));
+    } catch {
+      setVerifyResults(r => ({ ...r, [docId]: 'fail' }));
+    }
+    setVerifying(null);
+  };
+
+  const handleTamper = async (docId) => {
+    await simulateTampering(docId);
+    setVerifyResults(r => ({ ...r, [docId]: 'fail' }));
+  };
+
+  const handleRestore = async (docId) => {
+    await restoreOriginal(docId);
+    setVerifyResults(r => ({ ...r, [docId]: 'ok' }));
+  };
+
+  const verifiedCount = state.documents.filter(d => d.integrityStatus === 'Verified').length;
+  const tamperedCount = state.documents.filter(d => d.integrityStatus === 'Tampered').length;
+  const pendingCount = state.documents.filter(d => d.integrityStatus === 'Pending').length;
+
+  return (
+    <div className="p-5">
+      <PageHeader
+        title="Blockchain-Backed Integrity Verification"
+        subtitle="SHA-256 document hashes recorded on blockchain. Documents stored off-chain."
+        breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Integrity Verification' }]}
+      />
+
+      {/* Architecture Note */}
+      <Alert type="info" className="mb-4">
+        <strong>Architecture:</strong> Documents are stored in secure off-chain storage (MinIO/S3-compatible). Only SHA-256 hashes are recorded on the Hyperledger Fabric blockchain ledger for tamper-evident provenance.
+      </Alert>
+
+      {/* Summary Metrics */}
+      <div className="grid grid-cols-3 gap-3 mb-5">
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+          <div className="text-2xl font-bold text-green-700">{verifiedCount}</div>
+          <div className="text-xs text-green-700 mt-0.5">Integrity Verified</div>
+        </div>
+        <div className={`border rounded-lg p-3 text-center ${tamperedCount > 0 ? 'bg-red-50 border-red-200' : 'bg-[#F8FAFC] border-[#E2E8F0]'}`}>
+          <div className={`text-2xl font-bold ${tamperedCount > 0 ? 'text-red-700' : 'text-[#475569]'}`}>{tamperedCount}</div>
+          <div className={`text-xs mt-0.5 ${tamperedCount > 0 ? 'text-red-700' : 'text-[#475569]'}`}>Integrity Issues</div>
+        </div>
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-center">
+          <div className="text-2xl font-bold text-amber-700">{pendingCount}</div>
+          <div className="text-xs text-amber-700 mt-0.5">Pending Verification</div>
+        </div>
+      </div>
+
+      {/* Document List */}
+      <div className="space-y-4">
+        {state.documents.map(doc => {
+          const currentDoc = state.documents.find(d => d.id === doc.id);
+          const isTampered = currentDoc.integrityStatus === 'Tampered';
+          const isVerifying = verifying === doc.id;
+          const result = verifyResults[doc.id];
+
+          return (
+            <Card key={doc.id} className={isTampered ? 'border-red-300' : ''}>
+              <div className="flex flex-wrap gap-4 items-start">
+                {/* Doc Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span
+                      className="text-sm font-semibold text-[#0F2747] cursor-pointer hover:underline"
+                      onClick={() => navigate(`/documents/${doc.id}`)}
+                    >
+                      {doc.name}
+                    </span>
+                    <Badge>{doc.type}</Badge>
+                    <IntegrityBadge status={currentDoc.integrityStatus} />
+                  </div>
+                  <div className="text-xs text-[#475569] mt-1">Case: {doc.caseId} · Uploaded by {doc.uploadedBy}</div>
+
+                  {/* Hash Display */}
+                  <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <div className="text-[10px] font-medium text-[#475569] uppercase tracking-wide mb-1">
+                        {isTampered ? 'Original Hash (Blockchain)' : 'SHA-256 Hash'}
+                      </div>
+                      <div className={`font-mono text-xs rounded px-2.5 py-1.5 border break-all ${isTampered ? 'bg-green-50 border-green-200 text-green-800' : 'bg-[#F8FAFC] border-[#E2E8F0] text-[#1E293B]'}`}>
+                        {doc.sha256}
+                      </div>
+                    </div>
+                    {isTampered && (
+                      <div>
+                        <div className="text-[10px] font-medium text-red-600 uppercase tracking-wide mb-1">Calculated Hash (Current)</div>
+                        <div className="font-mono text-xs bg-red-50 border border-red-200 text-red-800 rounded px-2.5 py-1.5 break-all">
+                          91cd3f2b772a8e4a1c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Blockchain Info */}
+                  <div className="mt-2 flex flex-wrap gap-3 text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[#475569]">Blockchain:</span>
+                      <Badge variant="success">Confirmed</Badge>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[#475569]">Transaction:</span>
+                      <span className="font-mono text-[#1E293B]">{doc.blockchainTx}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-slate-400">
+                      <span>Recorded:</span>
+                      <span>{formatDateTime(doc.uploadDate)}</span>
+                    </div>
+                  </div>
+
+                  {/* Verification Result */}
+                  {isVerifying && (
+                    <div className="mt-2 flex items-center gap-2 text-sm text-[#475569]">
+                      <Spinner size="sm" />
+                      <span>Computing SHA-256 hash and comparing with blockchain record...</span>
+                    </div>
+                  )}
+                  {result === 'ok' && !isTampered && (
+                    <div className="mt-2 flex items-center gap-1.5 text-sm text-green-700">
+                      <CheckCircle size={14} />
+                      <span className="font-semibold">INTEGRITY VERIFIED</span>
+                      <span className="text-xs text-green-600">— Hash matches blockchain record</span>
+                    </div>
+                  )}
+                  {isTampered && (
+                    <div className="mt-2 flex items-center gap-1.5 text-sm text-red-700">
+                      <XCircle size={14} />
+                      <span className="font-bold">INTEGRITY MISMATCH</span>
+                      <span className="text-xs text-red-600">— Document may have been altered</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="flex flex-col gap-2 shrink-0">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => handleVerify(doc.id)}
+                    disabled={isVerifying}
+                  >
+                    {isVerifying ? <><Spinner size="sm" /> Verifying</> : <><ShieldCheck size={13} /> Verify</>}
+                  </Button>
+                  {!isTampered ? (
+                    <Button variant="warning" size="sm" onClick={() => handleTamper(doc.id)}>
+                      <AlertTriangle size={13} /> Simulate Tamper
+                    </Button>
+                  ) : (
+                    <Button variant="success" size="sm" onClick={() => handleRestore(doc.id)}>
+                      <RotateCcw size={13} /> Restore
+                    </Button>
+                  )}
+                  <Button variant="ghost" size="sm" onClick={() => navigate(`/documents/${doc.id}`)}>
+                    <ExternalLink size={13} /> View Doc
+                  </Button>
+                </div>
+              </div>
+
+              {/* Tampered Alert */}
+              {isTampered && (
+                <div className="mt-3 bg-red-50 border border-red-200 rounded p-3 text-sm text-red-800">
+                  <strong>⚠ INTEGRITY MISMATCH DETECTED</strong> — The calculated hash of this document does not match the hash recorded on the blockchain.
+                  This document may have been tampered with. Use "Restore" to revert to the verified state.
+                </div>
+              )}
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
