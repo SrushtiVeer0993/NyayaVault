@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { ROLES } from '../data/mockData';
@@ -6,7 +6,7 @@ import {
   LayoutDashboard, FolderOpen, FileText, Package, Search,
   Link2, ShieldCheck, Shield, ClipboardList, Award, Users,
   BarChart2, Settings, HelpCircle, LogOut, ChevronDown,
-  Bell, Menu, X, User, ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen,
+  Bell, Menu, X, User, ChevronLeft, ChevronRight,
   Sparkles,
 } from 'lucide-react';
 import { Badge, formatDateTime } from './ui/index.jsx';
@@ -36,9 +36,8 @@ const ROLE_COLORS = {
 export default function Layout({ children }) {
   const { state, switchRole, markNotificationRead, markAllNotificationsRead } = useApp();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(() => {
-    return localStorage.getItem('nyayavault_sidebar_collapsed') === 'true';
-  });
+  const [isHovered, setIsHovered] = useState(false);
+  const hoverTimeoutRef = useRef(null);
   const [roleMenuOpen, setRoleMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
@@ -48,13 +47,28 @@ export default function Layout({ children }) {
 
   const unreadCount = state.notifications.filter(n => !n.read).length;
 
-  const toggleCollapsed = () => {
-    setCollapsed(prev => {
-      const next = !prev;
-      localStorage.setItem('nyayavault_sidebar_collapsed', String(next));
-      return next;
-    });
+  const handleMouseEnter = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    setIsHovered(true);
   };
+
+  const handleMouseLeave = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+    hoverTimeoutRef.current = setTimeout(() => {
+      setIsHovered(false);
+    }, 180);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    };
+  }, []);
 
   const handleGlobalSearch = (val) => {
     setGlobalSearch(val);
@@ -81,25 +95,27 @@ export default function Layout({ children }) {
 
   return (
     <div className="flex h-screen bg-[#F8FAFC] overflow-hidden font-sans text-slate-800">
-      {/* Collapsible Sidebar */}
+      {/* Collapsible Sidebar with Hover Expansion */}
       <aside
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
         className={`fixed inset-y-0 left-0 z-40 bg-[#0B1A2C] border-r border-slate-800/80 flex flex-col transition-all duration-300 ease-in-out shadow-xl ${
           mobileSidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full'
         } lg:relative lg:translate-x-0 ${
-          collapsed ? 'lg:w-20' : 'lg:w-64'
+          isHovered ? 'lg:w-64' : 'lg:w-20'
         }`}
       >
         {/* Logo Header */}
-        <div className={`flex items-center px-4 py-4 border-b border-white/10 ${collapsed ? 'justify-center' : 'justify-between'}`}>
+        <div className={`flex items-center px-4 py-4 border-b border-white/10 transition-all duration-300 ${isHovered ? 'justify-between' : 'justify-center'}`}>
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-600 via-blue-600 to-indigo-700 flex items-center justify-center text-white shadow-md shadow-cyan-900/30 shrink-0 ring-1 ring-white/20">
               <ShieldCheck size={20} className="text-white" />
             </div>
-            {!collapsed && (
-              <div className="min-w-0 transition-opacity duration-200">
+            {isHovered && (
+              <div className="min-w-0 transition-opacity duration-200 whitespace-nowrap">
                 <div className="flex items-center gap-1.5">
                   <span className="text-white font-bold text-base tracking-tight leading-none">NyayaVault</span>
-                  <span className="text-[10px] font-semibold bg-cyan-500/20 text-cyan-300 px-1.5 py-0.2 rounded border border-cyan-500/30">
+                  <span className="text-[10px] font-semibold bg-cyan-500/20 text-cyan-300 px-1.5 py-0.5 rounded border border-cyan-500/30">
                     v2.5
                   </span>
                 </div>
@@ -109,31 +125,7 @@ export default function Layout({ children }) {
               </div>
             )}
           </div>
-
-          {/* Desktop Collapse Toggle */}
-          {!collapsed && (
-            <button
-              onClick={toggleCollapsed}
-              className="hidden lg:flex p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
-              title="Collapse sidebar"
-            >
-              <PanelLeftClose size={17} />
-            </button>
-          )}
         </div>
-
-        {/* Uncollapse button when collapsed */}
-        {collapsed && (
-          <div className="hidden lg:flex justify-center py-2 border-b border-white/5">
-            <button
-              onClick={toggleCollapsed}
-              className="p-1.5 text-slate-400 hover:text-cyan-400 hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
-              title="Expand sidebar"
-            >
-              <PanelLeftOpen size={17} />
-            </button>
-          </div>
-        )}
 
         {/* Navigation Items */}
         <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-1">
@@ -143,8 +135,8 @@ export default function Layout({ children }) {
               to={to}
               onClick={() => setMobileSidebarOpen(false)}
               className={({ isActive }) =>
-                `group relative flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
-                  collapsed ? 'justify-center' : ''
+                `group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
+                  isHovered ? '' : 'justify-center'
                 } ${
                   isActive
                     ? 'bg-gradient-to-r from-cyan-500/20 to-blue-500/10 text-white font-semibold border-l-2 border-cyan-400 shadow-xs'
@@ -159,12 +151,12 @@ export default function Layout({ children }) {
                 }`}
               />
 
-              {!collapsed && (
-                <span className="truncate">{label}</span>
-              )}
-
-              {/* Floating Tooltip in Collapsed State */}
-              {collapsed && (
+              {isHovered ? (
+                <span className="truncate whitespace-nowrap transition-opacity duration-200">
+                  {label}
+                </span>
+              ) : (
+                /* Floating Tooltip in Retracted State */
                 <div className="absolute left-full ml-3 px-2.5 py-1 bg-[#0F2747] text-white text-xs font-medium rounded-md shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap border border-slate-700">
                   {label}
                 </div>
@@ -179,7 +171,7 @@ export default function Layout({ children }) {
             to="/settings"
             className={({ isActive }) =>
               `group relative flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
-                collapsed ? 'justify-center' : ''
+                isHovered ? '' : 'justify-center'
               } ${
                 isActive
                   ? 'bg-white/10 text-white font-medium'
@@ -188,8 +180,9 @@ export default function Layout({ children }) {
             }
           >
             <Settings size={18} className="shrink-0 text-slate-400 group-hover:text-slate-200" />
-            {!collapsed && <span>Settings</span>}
-            {collapsed && (
+            {isHovered ? (
+              <span className="whitespace-nowrap transition-opacity duration-200">Settings</span>
+            ) : (
               <div className="absolute left-full ml-3 px-2.5 py-1 bg-[#0F2747] text-white text-xs font-medium rounded-md shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap border border-slate-700">
                 Settings
               </div>
@@ -198,31 +191,31 @@ export default function Layout({ children }) {
 
           {/* User Profile Card */}
           <div className="pt-2 border-t border-white/10 mt-1">
-            <div className={`flex items-center gap-2.5 px-2 py-1.5 rounded-xl ${collapsed ? 'justify-center' : ''}`}>
+            <div className={`flex items-center gap-2.5 px-2 py-1.5 rounded-xl ${isHovered ? '' : 'justify-center'}`}>
               <div
                 className="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-600 to-indigo-700 border border-white/20 flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-sm"
                 title={state.currentUser.name}
               >
                 {state.currentUser.avatar || 'NY'}
               </div>
-              {!collapsed && (
-                <div className="flex-1 min-w-0">
-                  <div className="text-white text-xs font-semibold truncate leading-tight">
-                    {state.currentUser.name.split(' ').slice(-2).join(' ')}
+              {isHovered && (
+                <>
+                  <div className="flex-1 min-w-0 whitespace-nowrap transition-opacity duration-200">
+                    <div className="text-white text-xs font-semibold truncate leading-tight">
+                      {state.currentUser.name.split(' ').slice(-2).join(' ')}
+                    </div>
+                    <div className="text-cyan-300/80 text-[10px] font-medium truncate mt-0.5">
+                      {state.currentRole}
+                    </div>
                   </div>
-                  <div className="text-cyan-300/80 text-[10px] font-medium truncate mt-0.5">
-                    {state.currentRole}
-                  </div>
-                </div>
-              )}
-              {!collapsed && (
-                <button
-                  onClick={() => navigate('/')}
-                  className="text-slate-400 hover:text-rose-400 p-1 hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
-                  title="Sign Out"
-                >
-                  <LogOut size={15} />
-                </button>
+                  <button
+                    onClick={() => navigate('/')}
+                    className="text-slate-400 hover:text-rose-400 p-1 hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
+                    title="Sign Out"
+                  >
+                    <LogOut size={15} />
+                  </button>
+                </>
               )}
             </div>
           </div>
