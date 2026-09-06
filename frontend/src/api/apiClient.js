@@ -227,5 +227,7 @@ export const api = {
 
   // 12. Analytics & Health
   getDashboardAnalytics: () => request('/analytics/dashboard'),
+  getOperationalAnalytics: (windowDays = 30, options = {}) =>
+    request(`/analytics/operational?window_days=${windowDays}`, options),
   getHealth: () => request('/health'),
 };
