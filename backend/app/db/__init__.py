@@ -3,6 +3,7 @@ from .session import engine, AsyncSessionLocal, get_db
 from .init_db import init_db_schema, seed_db
 from .models import (
     User,
+    RegistrationRequest,
     Role,
     Permission,
     RolePermission,
@@ -37,6 +38,7 @@ __all__ = [
     "init_db_schema",
     "seed_db",
     "User",
+    "RegistrationRequest",
     "Role",
     "Permission",
     "RolePermission",

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { ROLES } from '../data/mockData';
 import {
   LayoutDashboard, FolderOpen, FileText, Package, Search,
@@ -35,6 +36,7 @@ const ROLE_COLORS = {
 
 export default function Layout({ children }) {
   const { state, switchRole, markNotificationRead, markAllNotificationsRead } = useApp();
+  const { logout } = useAuth();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const hoverTimeoutRef = useRef(null);
@@ -93,6 +95,11 @@ export default function Layout({ children }) {
     navigate(notif.navigateTo || '/dashboard');
   };
 
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login', { replace: true });
+  };
+
   return (
     <div className="flex h-screen bg-[#F8FAFC] overflow-hidden font-sans text-slate-800">
       {/* Collapsible Sidebar with Hover Expansion */}
@@ -129,7 +136,7 @@ export default function Layout({ children }) {
 
         {/* Navigation Items */}
         <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-1">
-          {NAV_ITEMS.map(({ label, icon: Icon, to }) => (
+          {[...NAV_ITEMS, ...(state.currentRole === ROLES.ADMINISTRATOR ? [{ label: 'Registration Requests', icon: Users, to: '/registration-requests' }] : [])].map(({ label, icon: Icon, to }) => (
             <NavLink
               key={to}
               to={to}
@@ -209,7 +216,7 @@ export default function Layout({ children }) {
                     </div>
                   </div>
                   <button
-                    onClick={() => navigate('/')}
+                    onClick={handleLogout}
                     className="text-slate-400 hover:text-rose-400 p-1 hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
                     title="Sign Out"
                   >

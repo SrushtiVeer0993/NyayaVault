@@ -52,6 +52,28 @@ class User(Base):
     notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
 
 
+class RegistrationRequest(Base):
+    __tablename__ = "registration_requests"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    email = Column(String(255), unique=True, index=True, nullable=False)
+    full_name = Column(String(255), nullable=False)
+    employee_id = Column(String(64), unique=True, index=True, nullable=False)
+    department = Column(String(128), nullable=False)
+    designation = Column(String(128), nullable=False)
+    posting_location = Column(String(255), nullable=False)
+    justification = Column(Text, nullable=False)
+    requested_role = Column(String(64), nullable=False, index=True)
+    password_hash = Column(String(255), nullable=False)
+    supporting_document_name = Column(String(255), nullable=True)
+    status = Column(String(16), default="PENDING", nullable=False, index=True)
+    approved_by = Column(String(36), ForeignKey("users.id"), nullable=True)
+    approved_at = Column(DateTime(timezone=True), nullable=True)
+    rejection_reason = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+
+
 class Role(Base):
     __tablename__ = "roles"
 
