@@ -275,7 +275,7 @@ export default function Dashboard() {
               <button
                 key={action.label}
                 onClick={() => navigate(action.to)}
-                className={`p-3.5 rounded-2xl bg-gradient-to-br ${action.color} border border-slate-200/70 flex flex-col items-start justify-between h-24 hover:scale-[1.02] hover:shadow-xs transition-all duration-200 cursor-pointer text-left group`}
+                className={`p-3.5 rounded-2xl bg-gradient-to-br ${action.color} border border-slate-200/70 flex flex-col items-start justify-between h-24 hover:scale-[1.02] hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 focus-visible:ring-offset-2 transition-all duration-200 cursor-pointer text-left group`}
               >
                 <div className="w-8 h-8 rounded-xl bg-white shadow-2xs flex items-center justify-center">
                   <action.icon size={16} />
