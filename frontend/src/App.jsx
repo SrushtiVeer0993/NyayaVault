@@ -1,6 +1,10 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
+import Login from './pages/Login';
+import Signup from './pages/Signup';
+import RegistrationRequests from './pages/RegistrationRequests';
 import Dashboard from './pages/Dashboard';
 import Cases from './pages/Cases';
 import CaseDetail from './pages/CaseDetail';
@@ -17,12 +21,27 @@ import AccessControl from './pages/AccessControl';
 import Analytics from './pages/Analytics';
 import Settings from './pages/Settings';
 
-export default function App() {
+function ApplicationRoutes() {
+  const { loading, isAuthenticated } = useAuth();
+  const location = useLocation();
+
+  if (loading) {
+    return <div className="min-h-screen bg-[#071322] flex items-center justify-center text-white">Loading secure session...</div>;
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <Routes>
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="*" element={<Navigate to="/login" state={{ from: location.pathname }} replace />} />
+      </Routes>
+    );
+  }
+
   return (
-    <AppProvider>
-      <BrowserRouter>
-        <Layout>
-          <Routes>
+    <Layout>
+      <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/cases" element={<Cases />} />
@@ -37,13 +56,29 @@ export default function App() {
             <Route path="/audit" element={<AuditTrail />} />
             <Route path="/certificates" element={<Certificates />} />
             <Route path="/access-control" element={<AccessControl />} />
+            <Route path="/registration-requests" element={<AdminOnly><RegistrationRequests /></AdminOnly>} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/settings" element={<Settings />} />
             {/* Catch-all */}
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
-          </Routes>
-        </Layout>
-      </BrowserRouter>
-    </AppProvider>
+      </Routes>
+    </Layout>
+  );
+}
+
+function AdminOnly({ children }) {
+  const { user } = useAuth();
+  return user?.role === 'Administrator' ? children : <Navigate to="/dashboard" replace />;
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppProvider>
+        <BrowserRouter>
+          <ApplicationRoutes />
+        </BrowserRouter>
+      </AppProvider>
+    </AuthProvider>
   );
 }
