@@ -15,7 +15,7 @@ router = APIRouter(prefix="/search", tags=["Search & Retrieval"])
 @router.get("", response_model=SearchResponse)
 async def search_documents(
     q: str = Query(..., min_length=1),
-    mode: str = Query("hybrid", pattern=r"^(keyword|semantic|hybrid)$"),
+    mode: str = Query("hybrid", pattern="^(keyword|semantic|hybrid)$"),
     case_id: Optional[str] = None,
 
     document_type: Optional[str] = None,

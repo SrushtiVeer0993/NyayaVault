@@ -12,8 +12,6 @@ from app.core.exceptions.handlers import (
     generic_exception_handler,
 )
 from app.core.middleware.audit_middleware import CorrelationIdMiddleware
-from app.db.session import AsyncSessionLocal
-from app.db.init_db import init_db_schema, seed_db
 from app.api.v1.api_router import api_v1_router
 from app.integrations.qdrant_client import qdrant_service
 
@@ -24,17 +22,7 @@ logger = logging.getLogger("nyayavault.main")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Initializing database tables and seed data...")
-    try:
-        await init_db_schema()
-        async with AsyncSessionLocal() as session:
-            await seed_db(session)
-        logger.info("NyayaVault backend initialized successfully.")
-
-        # Initialize Qdrant Vector DB collections
-        await qdrant_service.init_collections()
-    except Exception as e:
-        logger.error(f"Initialization error: {e}")
+    logger.info("NyayaVault backend starting. Database provisioning is managed separately.")
     yield
     logger.info("NyayaVault backend shutting down.")
 
@@ -54,7 +42,7 @@ app = FastAPI(
 app.add_middleware(CorrelationIdMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS or ["*"],
+    allow_origins=[origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()] or ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

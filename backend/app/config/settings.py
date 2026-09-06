@@ -21,8 +21,11 @@ class Settings(BaseSettings):
     # Relational Database (PostgreSQL)
     DATABASE_URL: str = "postgresql+asyncpg://nyayavault:nyayavault@localhost:5432/nyayavault"
 
-    # JWT Authentication
-    JWT_SECRET: str = "nyayavault-jwt-secret-dev-change-in-production"
+    # Optional Supabase client metadata. Backend writes use DATABASE_URL, not the anon key.
+    SUPABASE_URL: str = ""
+    SUPABASE_ANON_KEY: str = ""
+
+    # JWT
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 120
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
@@ -73,12 +76,10 @@ class Settings(BaseSettings):
 
 
     # CORS
-    CORS_ORIGINS: Union[List[str], str] = [
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:8080",
-    ]
+    CORS_ORIGINS: str = (
+        "http://localhost:3000,http://localhost:5173,"
+        "http://127.0.0.1:5173,http://localhost:8080"
+    )
 
     @field_validator("CORS_ORIGINS", mode="after")
     @classmethod
