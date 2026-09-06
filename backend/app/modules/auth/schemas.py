@@ -1,17 +1,17 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field
 
 from app.core.security.rbac import RoleEnum
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 
 class SignupRequest(BaseModel):
-    email: EmailStr
+    email: str
     password: str = Field(min_length=8)
     full_name: str = Field(min_length=2, max_length=255)
     employee_id: str = Field(min_length=2, max_length=64)
@@ -25,7 +25,7 @@ class SignupRequest(BaseModel):
 
 class RegistrationRequestResponse(BaseModel):
     id: str
-    email: EmailStr
+    email: str
     full_name: str
     employee_id: str
     department: str

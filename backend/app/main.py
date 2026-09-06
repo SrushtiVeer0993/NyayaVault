@@ -1,5 +1,6 @@
 import logging
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
@@ -22,10 +23,11 @@ logger = logging.getLogger("nyayavault.main")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("NyayaVault backend starting. Database provisioning is managed separately.")
+    logger.info(
+        "NyayaVault backend starting. Database provisioning is managed separately."
+    )
     yield
     logger.info("NyayaVault backend shutting down.")
-
 
 
 app = FastAPI(
@@ -40,18 +42,30 @@ app = FastAPI(
 
 # Middleware
 app.add_middleware(CorrelationIdMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()] or ["*"],
+    allow_origins=settings.CORS_ORIGINS or ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Exception Handlers
-app.add_exception_handler(NyayaVaultException, nyayavault_exception_handler)
-app.add_exception_handler(RequestValidationError, validation_exception_handler)
-app.add_exception_handler(Exception, generic_exception_handler)
+app.add_exception_handler(
+    NyayaVaultException,
+    nyayavault_exception_handler,
+)
+
+app.add_exception_handler(
+    RequestValidationError,
+    validation_exception_handler,
+)
+
+app.add_exception_handler(
+    Exception,
+    generic_exception_handler,
+)
 
 # Include API Routes
 app.include_router(api_v1_router)
@@ -70,4 +84,10 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+
+    uvicorn.run(
+        "app.main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+    )
