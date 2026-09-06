@@ -14,7 +14,7 @@ from app.core.exceptions.handlers import (
 from app.core.security.jwt import decode_token
 from app.core.security.hashing import compute_sha256
 from app.core.security.rbac import get_permissions_for_role
-from app.db.models import User, AuditEvent
+from app.db.models import User, AuditEvent, utc_now
 from app.db.session import get_db
 
 logger = logging.getLogger("nyayavault.auth")
@@ -153,7 +153,7 @@ async def record_audit_log(
     meta_str = json.dumps(metadata or {}, sort_keys=True)
     hash_payload = f"{actor_id}:{actor_role}:{action}:{resource_type}:{resource_id}:{result}:{severity}:{previous_hash}:{meta_str}".encode("utf-8")
     current_hash = compute_sha256(hash_payload)
-
+    event_timestamp = utc_now()
     audit_entry = AuditEvent(
         actor_id=actor_id,
         actor_role=actor_role,
@@ -168,6 +168,7 @@ async def record_audit_log(
         metadata_json=metadata,
         previous_event_hash=previous_hash,
         event_hash=current_hash,
+        timestamp=event_timestamp,
     )
     db.add(audit_entry)
     await db.flush()
