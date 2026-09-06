@@ -15,6 +15,8 @@ from app.core.middleware.audit_middleware import CorrelationIdMiddleware
 from app.db.session import AsyncSessionLocal
 from app.db.init_db import init_db_schema, seed_db
 from app.api.v1.api_router import api_v1_router
+from app.integrations.qdrant_client import qdrant_service
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("nyayavault.main")
@@ -28,10 +30,14 @@ async def lifespan(app: FastAPI):
         async with AsyncSessionLocal() as session:
             await seed_db(session)
         logger.info("NyayaVault backend initialized successfully.")
+
+        # Initialize Qdrant Vector DB collections
+        await qdrant_service.init_collections()
     except Exception as e:
         logger.error(f"Initialization error: {e}")
     yield
     logger.info("NyayaVault backend shutting down.")
+
 
 
 app = FastAPI(

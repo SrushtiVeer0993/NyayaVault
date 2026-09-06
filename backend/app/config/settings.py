@@ -1,5 +1,6 @@
-import os
-from typing import List, Optional
+import json
+from typing import List, Optional, Union
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -17,8 +18,8 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     SECRET_KEY: str = "nyayavault-dev-secret-change-in-production-minimum-32-chars-long"
 
-    # Database: Supports SQLite (aiosqlite) or PostgreSQL (asyncpg)
-    DATABASE_URL: str = "sqlite+aiosqlite:///./nyayavault.db"
+    # Relational Database (PostgreSQL)
+    DATABASE_URL: str = "postgresql+asyncpg://nyayavault:nyayavault@localhost:5432/nyayavault"
 
     # JWT Authentication
     JWT_SECRET: str = "nyayavault-jwt-secret-dev-change-in-production"
@@ -26,8 +27,8 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 120
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    # Storage (MinIO/S3 or local fallback)
-    STORAGE_PROVIDER: str = "local"  # "local" or "minio" or "s3"
+    # Object Storage (MinIO / S3)
+    STORAGE_PROVIDER: str = "minio"  # "minio" or "s3"
     STORAGE_ENDPOINT: str = "http://localhost:9000"
     STORAGE_ACCESS_KEY: str = "minioadmin"
     STORAGE_SECRET_KEY: str = "minioadmin"
@@ -35,6 +36,8 @@ class Settings(BaseSettings):
     STORAGE_REGION: str = "us-east-1"
     STORAGE_SECURE: bool = False
     STORAGE_LOCAL_DIR: str = "./storage_data"
+
+
 
     # Qdrant Vector Database
     QDRANT_URL: str = "http://localhost:6333"
@@ -61,19 +64,34 @@ class Settings(BaseSettings):
     EMBEDDING_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"
     SPACY_MODEL: str = "en_core_web_sm"
 
-    # External APIs & Services
+    # External APIs & LLM Inference Services
+    GROQ_API_KEY: Optional[str] = None
+    GROQ_MODEL: str = "llama-3.3-70b-versatile"
     OPENAI_API_KEY: Optional[str] = None
-    HUGGINGFACE_API_KEY: Optional[str] = None
     SUPABASE_URL: Optional[str] = None
     SUPABASE_ANON_KEY: Optional[str] = None
 
+
     # CORS
-    CORS_ORIGINS: List[str] = [
+    CORS_ORIGINS: Union[List[str], str] = [
         "http://localhost:3000",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:8080",
     ]
+
+    @field_validator("CORS_ORIGINS", mode="after")
+    @classmethod
+    def parse_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
+        if isinstance(v, str):
+            if v.startswith("[") and v.endswith("]"):
+                try:
+                    return json.loads(v)
+                except Exception:
+                    pass
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
+
 
     # File Upload Rules
     MAX_FILE_SIZE_MB: int = 50
@@ -81,5 +99,6 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
 
 

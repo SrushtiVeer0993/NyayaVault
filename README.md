@@ -55,7 +55,8 @@ Nyayavault/
 │   ├── vite.config.js            # Vite build configuration
 │   └── Dockerfile                # Frontend container configuration
 │
-├── backend/                      # Python 3.11+ FastAPI + SQLAlchemy + SQLite/PostgreSQL
+├── backend/                      # Python 3.11+ FastAPI + SQLAlchemy + PostgreSQL + MinIO + Qdrant
+
 │   ├── app/
 │   │   ├── main.py               # FastAPI entrypoint, CORS, lifespan startup & DB seed
 │   │   ├── config/               # Pydantic Settings & environment config
@@ -136,8 +137,9 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
-> **Automatic SQLite Initialization:**  
-> On startup, the backend automatically creates `nyayavault.db` using SQLite, initializes all database tables, and seeds realistic test cases, custody chains, integrity records, and administrative accounts.
+> **Automatic PostgreSQL & Qdrant Initialization:**  
+> On startup, the backend automatically connects to PostgreSQL (or Supabase), initializes all schema tables, connects to Qdrant vector database collections, and seeds realistic test cases, custody chains, integrity records, and administrative accounts.
+
 
 #### 2. Run Backend Tests
 

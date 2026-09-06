@@ -98,10 +98,12 @@ OCR_ENGINE=mock                     # Options: mock, tesseract, easyocr
 EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
 SPACY_MODEL=en_core_web_sm
 
-# External API Keys (Optional for Cloud AI)
-OPENAI_API_KEY=
-HUGGINGFACE_API_KEY=
+# External API Keys (Optional for Cloud AI / LLM Inference)
+GROQ_API_KEY=your_groq_api_key_here
+GROQ_MODEL=llama-3.3-70b-versatile
 ```
+
+
 
 > **Security Note:** Never commit `backend/.env` to version control. Keep `.env.example` updated whenever new credentials or secrets are introduced.
 
