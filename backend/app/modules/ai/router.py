@@ -13,6 +13,8 @@ from app.modules.ai.schemas import (
     AIReviewResponse,
 )
 
+from app.modules.ai.service import ai_service
+
 router = APIRouter(prefix="/ai", tags=["AI Intelligence & OCR"])
 
 
@@ -37,6 +39,34 @@ async def list_pending_ai_reviews(
         select(AIExtraction).filter_by(review_required=True).order_by(AIExtraction.created_at.desc())
     )
     return result.scalars().all()
+
+
+@router.post("/summarize/{document_id}")
+async def summarize_document_with_groq(
+    document_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Summarizes a legal document using Groq Llama 3.3 70B LLM inference"""
+    doc_res = await db.execute(select(Document).filter_by(id=document_id))
+    doc = doc_res.scalars().first()
+    if not doc:
+        raise ResourceNotFoundException("Document", document_id)
+
+    ext_res = await db.execute(select(AIExtraction).filter_by(document_id=document_id).order_by(AIExtraction.created_at.desc()))
+    ext = ext_res.scalars().first()
+
+    raw_text = ext.raw_text if ext and ext.raw_text else f"NyayaVault Legal Document Title: {doc.title}\nType: {doc.document_type}"
+
+    summary_res = await ai_service.summarize_document_groq(text=raw_text, title=doc.title)
+    return {
+        "document_id": document_id,
+        "title": doc.title,
+        "document_type": doc.document_type,
+        "summary": summary_res.get("text"),
+        "model": summary_res.get("model"),
+        "status": summary_res.get("status"),
+    }
 
 
 @router.post("/review/{extraction_id}", response_model=AIReviewResponse)
@@ -96,3 +126,4 @@ async def submit_human_review(
     await db.commit()
     await db.refresh(review)
     return review
+

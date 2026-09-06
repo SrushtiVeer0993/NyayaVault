@@ -13,6 +13,8 @@ from app.core.exceptions.handlers import (
 )
 from app.core.middleware.audit_middleware import CorrelationIdMiddleware
 from app.api.v1.api_router import api_v1_router
+from app.integrations.qdrant_client import qdrant_service
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("nyayavault.main")
@@ -23,6 +25,7 @@ async def lifespan(app: FastAPI):
     logger.info("NyayaVault backend starting. Database provisioning is managed separately.")
     yield
     logger.info("NyayaVault backend shutting down.")
+
 
 
 app = FastAPI(

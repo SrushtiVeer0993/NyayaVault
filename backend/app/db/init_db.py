@@ -37,9 +37,10 @@ DEMO_REFERENCE_TIME = datetime(2026, 9, 6, 9, 0, tzinfo=timezone.utc)
 
 
 async def init_db_schema():
-    """Initializes tables for SQLite or Postgres"""
+    """Initializes schema tables for PostgreSQL database"""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
 
 
 async def seed_demo_dataset(db: AsyncSession):

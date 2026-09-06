@@ -5,18 +5,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.settings import settings
 from app.db.session import get_db
+from app.integrations.qdrant_client import qdrant_service
+
 
 router = APIRouter(prefix="/health", tags=["Observability & Health Checks"])
 
 
 @router.get("")
 async def general_health():
+    qdrant_status = await qdrant_service.check_health()
     return {
         "status": "HEALTHY",
         "service": settings.APP_NAME,
         "version": settings.APP_VERSION,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "environment": settings.APP_ENV,
+        "qdrant": qdrant_status,
     }
 
 
@@ -55,3 +59,9 @@ async def blockchain_health():
         "chaincode": settings.BLOCKCHAIN_CHAINCODE,
         "ledger_state": "SYNCHRONIZED",
     }
+
+
+@router.get("/qdrant")
+async def qdrant_health():
+    return await qdrant_service.check_health()
+

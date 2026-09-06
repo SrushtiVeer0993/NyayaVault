@@ -55,7 +55,8 @@ Nyayavault/
 │   ├── vite.config.js            # Vite build configuration
 │   └── Dockerfile                # Frontend container configuration
 │
-├── backend/                      # Python 3.11+ FastAPI + SQLAlchemy + SQLite/PostgreSQL
+├── backend/                      # Python 3.11+ FastAPI + SQLAlchemy + PostgreSQL + MinIO + Qdrant
+
 │   ├── app/
 │   │   ├── main.py               # FastAPI entrypoint, CORS, lifespan startup & DB seed
 │   │   ├── config/               # Pydantic Settings & environment config
