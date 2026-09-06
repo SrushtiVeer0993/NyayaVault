@@ -76,45 +76,124 @@ async def test_cases_workflow(client: AsyncClient):
     created = create_resp.json()
     assert created["case_number"] == f"DL-SPL-2026-{uid}"
 
-
 @pytest.mark.asyncio
 async def test_document_upload_and_integrity(client: AsyncClient):
     # 1. Upload Document
     file_bytes = b"FIRST INFORMATION REPORT (DIGITAL COPY)\nSection: IPC 302/120B\nOfficer: Vikram Shinde"
     files = {"file": ("FIR_Murder_Case.pdf", file_bytes, "application/pdf")}
+
     data = {
         "case_id": "case_mh_01428",
         "document_type": "FIR",
         "classification": "Confidential",
         "title": "FIR_Murder_Case.pdf",
     }
-    upload_resp = await client.post("/api/v1/documents", data=data, files=files)
+
+    upload_resp = await client.post(
+        "/api/v1/documents",
+        data=data,
+        files=files,
+    )
+
     assert upload_resp.status_code == 201
+
     doc = upload_resp.json()
     assert doc["title"] == "FIR_Murder_Case.pdf"
+
     version_id = doc["latest_version"]["id"]
-    sha256 = doc["latest_version"]["sha256_hash"]
 
     # 2. Verify Integrity
-    verify_resp = await client.post(f"/api/v1/integrity/verify/{version_id}")
+    verify_resp = await client.post(
+        f"/api/v1/integrity/verify/{version_id}"
+    )
+
     assert verify_resp.status_code == 200
     assert verify_resp.json()["status"] == "VERIFIED"
 
     # 3. Simulate Tampering
-    tamper_resp = await client.post(f"/api/v1/integrity/simulate-tamper/{version_id}")
+    tamper_resp = await client.post(
+        f"/api/v1/integrity/simulate-tamper/{version_id}"
+    )
+
     assert tamper_resp.status_code == 200
     assert tamper_resp.json()["status"] == "INTEGRITY_MISMATCH"
 
-    # Verify that it now fails
-    verify_again = await client.post(f"/api/v1/integrity/verify/{version_id}")
+    # 4. Verify that tampering is detected
+    verify_again = await client.post(
+        f"/api/v1/integrity/verify/{version_id}"
+    )
+
     assert verify_again.json()["status"] == "INTEGRITY_MISMATCH"
 
-    # 4. Restore Integrity
-    restore_resp = await client.post(f"/api/v1/integrity/restore/{version_id}")
+    # 5. Restore Integrity
+    restore_resp = await client.post(
+        f"/api/v1/integrity/restore/{version_id}"
+    )
+
     assert restore_resp.status_code == 200
     assert restore_resp.json()["status"] == "VERIFIED"
 
 
+@pytest.mark.asyncio
+async def test_document_lifecycle_history(client: AsyncClient):
+
+    # 1. Create a document so lifecycle audit events definitely exist
+    file_bytes = (
+        b"FIRST INFORMATION REPORT (DIGITAL COPY)\n"
+        b"Section: IPC 302/120B\n"
+        b"Officer: Vikram Shinde"
+    )
+
+    files = {
+        "file": (
+            "Lifecycle_Test_FIR.pdf",
+            file_bytes,
+            "application/pdf",
+        )
+    }
+
+    data = {
+        "case_id": "case_mh_01428",
+        "document_type": "FIR",
+        "classification": "Confidential",
+        "title": "Lifecycle_Test_FIR.pdf",
+    }
+
+    upload_resp = await client.post(
+        "/api/v1/documents",
+        data=data,
+        files=files,
+    )
+
+    assert upload_resp.status_code == 201
+
+    document = upload_resp.json()
+    document_id = document["id"]
+
+    # 2. Retrieve the document lifecycle history
+    response = await client.get(
+        f"/api/v1/audit/document/{document_id}"
+    )
+
+    assert response.status_code == 200
+
+    events = response.json()
+
+    # 3. The upload should have created an audit event
+    assert isinstance(events, list)
+    assert len(events) > 0
+
+    # 4. Every returned event must belong to this document
+    for event in events:
+        assert event["resource_type"] == "document"
+        assert event["resource_id"] == document_id
+
+    # 5. Lifecycle history must be chronological
+    timestamps = [event["timestamp"] for event in events]
+
+    assert timestamps == sorted(timestamps)
+
+    
 @pytest.mark.asyncio
 async def test_evidence_custody_transfer(client: AsyncClient):
     # 1. List evidence
@@ -164,6 +243,53 @@ async def test_audit_chain_verification(client: AsyncClient):
     assert data["is_valid"] is True
     assert data["verified_events"] > 0
 
+@pytest.mark.asyncio
+async def test_audit_chain_detects_tampering(client: AsyncClient):
+    from app.db.session import AsyncSessionLocal
+    from app.db.models import AuditEvent
+    from sqlalchemy import select
+
+    # 1. Get the audit events in the same order used by verification
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(AuditEvent).order_by(AuditEvent.timestamp.asc())
+        )
+        events = result.scalars().all()
+
+        assert len(events) > 0
+
+        # Select the first event in the verification order
+        event = events[0]
+        event_id = event.id
+        original_action = event.action
+
+        # 2. Tamper with the event without changing its stored hash
+        event.action = "TAMPERED_ACTION"
+        await session.commit()
+
+    try:
+        # 3. Verify the chain
+        verify_resp = await client.get("/api/v1/audit/verify-chain")
+
+        assert verify_resp.status_code == 200
+
+        data = verify_resp.json()
+
+        # 4. Tampering must be detected
+        assert data["is_valid"] is False
+        assert data["broken_event_id"] == event_id
+        assert "Hash mismatch detected" in data["message"]
+
+    finally:
+        # 5. Restore the original database state
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(AuditEvent).where(AuditEvent.id == event_id)
+            )
+            event = result.scalar_one()
+
+            event.action = original_action
+            await session.commit()
 
 @pytest.mark.asyncio
 async def test_analytics_dashboard(client: AsyncClient):
