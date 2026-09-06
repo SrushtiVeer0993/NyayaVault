@@ -51,6 +51,64 @@ async def test_authentication_workflow(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_registration_request_approval_workflow(client: AsyncClient):
+    import uuid
+
+    suffix = uuid.uuid4().hex[:8]
+    applicant = {
+        "email": f"officer-{suffix}@nyayavault.gov.in",
+        "password": "OfficerPass@2026",
+        "full_name": "Asha Rao",
+        "employee_id": f"EMP-{suffix}",
+        "department": "Digital Investigation Unit",
+        "designation": "Investigation Officer",
+        "posting_location": "Pune Cyber Cell",
+        "justification": "I require secure access to manage assigned investigation records.",
+        "requested_role": "Investigating Officer",
+        "supporting_document_name": "asha-rao-id.pdf",
+    }
+
+    signup = await client.post("/api/v1/auth/signup", json=applicant)
+    assert signup.status_code == 201
+    request_data = signup.json()
+    assert request_data["status"] == "PENDING"
+
+    pending_login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": applicant["email"], "password": applicant["password"]},
+    )
+    assert pending_login.status_code == 403
+    assert "pending" in pending_login.json()["detail"].lower()
+
+    unauthenticated_queue = await client.get("/api/v1/auth/registration-requests")
+    assert unauthenticated_queue.status_code in (401, 403)
+
+    admin_login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "admin@nyayavault.gov.in", "password": "NyayaVault@2026"},
+    )
+    admin_headers = {"Authorization": f"Bearer {admin_login.json()['access_token']}"}
+
+    queue = await client.get("/api/v1/auth/registration-requests", headers=admin_headers)
+    assert queue.status_code == 200
+    assert any(item["id"] == request_data["id"] for item in queue.json())
+
+    approval = await client.post(
+        f"/api/v1/auth/registration-requests/{request_data['id']}/approve",
+        headers=admin_headers,
+    )
+    assert approval.status_code == 200
+    assert approval.json()["status"] == "APPROVED"
+
+    approved_login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": applicant["email"], "password": applicant["password"]},
+    )
+    assert approved_login.status_code == 200
+    assert approved_login.json()["user"]["role"] == "Investigating Officer"
+
+
+@pytest.mark.asyncio
 async def test_cases_workflow(client: AsyncClient):
     # 1. List cases
     cases_resp = await client.get("/api/v1/cases")
