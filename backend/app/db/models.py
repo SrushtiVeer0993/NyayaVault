@@ -210,6 +210,11 @@ class StorageObject(Base):
     storage_provider = Column(String(32), default="minio", nullable=False)  # minio / s3
     bucket = Column(String(128), nullable=False)
     storage_key = Column(String(512), nullable=False)
+    canonical_bucket = Column(String(128), nullable=True)
+    canonical_key = Column(String(512), nullable=True)
+    etag = Column(String(128), nullable=True)
+    object_version_id = Column(String(256), nullable=True)
+    mime_type = Column(String(128), nullable=True)
     file_size = Column(Integer, nullable=False)
     is_tampered_simulated = Column(Boolean, default=False, nullable=False)
 

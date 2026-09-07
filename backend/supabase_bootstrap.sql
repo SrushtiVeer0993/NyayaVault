@@ -231,9 +231,20 @@ CREATE TABLE IF NOT EXISTS storage_objects (
     storage_provider     VARCHAR(32)  NOT NULL DEFAULT 'minio',
     bucket               VARCHAR(128) NOT NULL,
     storage_key          VARCHAR(512) NOT NULL,
+    canonical_bucket     VARCHAR(128),
+    canonical_key        VARCHAR(512),
+    etag                 VARCHAR(128),
+    object_version_id    VARCHAR(256),
+    mime_type            VARCHAR(128),
     file_size            INTEGER      NOT NULL,
     is_tampered_simulated BOOLEAN     NOT NULL DEFAULT FALSE
 );
+
+ALTER TABLE storage_objects ADD COLUMN IF NOT EXISTS canonical_bucket VARCHAR(128);
+ALTER TABLE storage_objects ADD COLUMN IF NOT EXISTS canonical_key VARCHAR(512);
+ALTER TABLE storage_objects ADD COLUMN IF NOT EXISTS etag VARCHAR(128);
+ALTER TABLE storage_objects ADD COLUMN IF NOT EXISTS object_version_id VARCHAR(256);
+ALTER TABLE storage_objects ADD COLUMN IF NOT EXISTS mime_type VARCHAR(128);
 
 -- ---------------------------------------------------------------------------
 -- 4. AI / OCR & Processing
