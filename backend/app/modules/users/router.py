@@ -56,11 +56,6 @@ async def create_user(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission("manage_users")),
 ):
-    # Check duplicate email
-    existing = await db.execute(select(User).filter_by(email=user_in.email))
-    if existing.scalars().first():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User with this email already exists.")
-
     new_user = User(
         email=user_in.email,
         full_name=user_in.full_name,

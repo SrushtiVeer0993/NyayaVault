@@ -18,8 +18,8 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     SECRET_KEY: str = "nyayavault-dev-secret-change-in-production-minimum-32-chars-long"
 
-    # Relational Database (PostgreSQL)
-    DATABASE_URL: str = "postgresql+asyncpg://nyayavault:nyayavault@localhost:5432/nyayavault"
+    # Relational Database (Supabase PostgreSQL)
+    DATABASE_URL: str
 
     # Optional Supabase client metadata. Backend writes use DATABASE_URL, not the anon key.
     SUPABASE_URL: str = ""

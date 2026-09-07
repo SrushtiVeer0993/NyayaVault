@@ -23,7 +23,6 @@ services:
     environment:
       - APP_ENV=development
       - DEBUG=true
-      - DATABASE_URL=postgresql+asyncpg://nyayavault:nyayavault@postgres:5432/nyayavault
       - STORAGE_PROVIDER=minio
       - STORAGE_ENDPOINT=http://minio:9000
       - STORAGE_ACCESS_KEY=minioadmin

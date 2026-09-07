@@ -47,7 +47,16 @@ export default function Login() {
           <label className="block text-sm font-medium text-slate-700">Password<input required type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5" /></label>
           <button disabled={submitting} className="w-full rounded-lg bg-cyan-700 px-4 py-2.5 font-semibold text-white hover:bg-cyan-800 disabled:opacity-60">{submitting ? 'Signing in...' : 'Sign in'}</button>
         </form>
-        <p className="mt-6 text-center text-sm text-slate-500">Need access? <Link className="font-semibold text-cyan-700 hover:underline" to="/signup">Request an account</Link></p>
+        <p className="mt-4 text-center text-sm text-slate-500">Need access? <Link className="font-semibold text-cyan-700 hover:underline" to="/signup">Request an account</Link></p>
+
+        <div className="mt-6 bg-slate-50 border border-slate-200 rounded-lg p-3 text-[11px] text-slate-500 space-y-1">
+          <div className="font-semibold text-slate-700 mb-1">Demo Accounts</div>
+          <div>admin@nyayavault.gov.in</div>
+          <div>investigator@nyayavault.gov.in</div>
+          <div>forensics@nyayavault.gov.in</div>
+          <div>senior@nyayavault.gov.in</div>
+          <div className="pt-1">Password: <span className="font-mono">NyayaVault@2026</span></div>
+        </div>
       </section>
     </main>
   );

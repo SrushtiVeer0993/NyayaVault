@@ -65,8 +65,9 @@ APP_VERSION=1.0.0
 DEBUG=true
 SECRET_KEY=nyayavault-dev-secret-change-in-production-minimum-32-chars
 
-# Relational Database (PostgreSQL / SQLite fallback)
-DATABASE_URL=postgresql+asyncpg://nyayavault:nyayavault@localhost:5432/nyayavault
+# Relational Database (Supabase PostgreSQL)
+DATABASE_URL=postgresql+asyncpg://<username>:<password>@<db-host>:5432/<database-name>
+
 
 # JWT Secrets
 JWT_SECRET=nyayavault-jwt-secret-dev-change-in-production

@@ -1,3 +1,4 @@
+import re
 from typing import List, Optional
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -73,7 +74,25 @@ async def create_case(
     if existing.scalars().first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Case number already registered.")
 
+    # Generate a readable case ID from the case number, e.g. "MH-PN-2026-4484" -> "case_mh_4484"
+    parts = re.split(r"[-_\s]+", case_in.case_number.strip())
+    if len(parts) >= 2:
+        readable_id = f"case_{parts[0].lower()}_{parts[-1].lower()}"
+    else:
+        readable_id = f"case_{re.sub(r'[^a-z0-9]', '', case_in.case_number.lower())}"
+
+    # Ensure uniqueness; fall back with a numeric suffix if needed
+    base_id = readable_id
+    suffix = 1
+    while True:
+        id_check = await db.execute(select(Case).filter_by(id=readable_id))
+        if not id_check.scalars().first():
+            break
+        suffix += 1
+        readable_id = f"{base_id}_{suffix}"
+
     new_case = Case(
+        id=readable_id,
         case_number=case_in.case_number,
         title=case_in.title,
         case_type=case_in.case_type,
