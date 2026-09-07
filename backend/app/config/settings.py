@@ -39,7 +39,6 @@ class Settings(BaseSettings):
     STORAGE_BUCKET: str = "nyayavault-documents"
     STORAGE_REGION: str = "us-east-1"
     STORAGE_SECURE: bool = False
-    STORAGE_LOCAL_DIR: str = "./storage_data"
 
 
 

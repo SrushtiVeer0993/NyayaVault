@@ -228,7 +228,7 @@ CREATE INDEX IF NOT EXISTS idx_doc_versions_sha256      ON document_versions (sh
 CREATE TABLE IF NOT EXISTS storage_objects (
     id                   VARCHAR(36)  PRIMARY KEY,
     version_id           VARCHAR(36)  NOT NULL UNIQUE REFERENCES document_versions(id) ON DELETE CASCADE,
-    storage_provider     VARCHAR(32)  NOT NULL DEFAULT 'local',
+    storage_provider     VARCHAR(32)  NOT NULL DEFAULT 'minio',
     bucket               VARCHAR(128) NOT NULL,
     storage_key          VARCHAR(512) NOT NULL,
     file_size            INTEGER      NOT NULL,
@@ -628,8 +628,8 @@ ON CONFLICT (email) DO UPDATE SET
 -- END OF BOOTSTRAP SCRIPT
 -- =============================================================================
 -- After running this script:
---   1. Start the FastAPI backend — it will auto-seed additional demo users and
---      sample case data on first startup via app/db/init_db.py:seed_db().
+--   1. Optionally run `python seed.py` from the backend directory to add demo
+--      users and sample case data. The FastAPI backend does not seed on startup.
 --   2. Verify connectivity at GET /api/v1/health/db
 --   3. Login at POST /api/v1/auth/login with the admin credentials above.
 -- =============================================================================

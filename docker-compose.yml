@@ -60,6 +60,17 @@ services:
     volumes:
       - minio_data:/data
 
+  # Create the application bucket outside the FastAPI startup lifecycle.
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_started
+    entrypoint: /bin/sh
+    command: >-
+      -c "until mc alias set local http://minio:9000 minioadmin minioadmin; do sleep 1; done;
+      mc mb --ignore-existing local/nyayavault-documents"
+
   # 4. Vector Database: Qdrant
   qdrant:
     image: qdrant/qdrant:latest

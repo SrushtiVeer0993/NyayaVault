@@ -58,7 +58,7 @@ Nyayavault/
 ├── backend/                      # Python 3.11+ FastAPI + SQLAlchemy + PostgreSQL + MinIO + Qdrant
 
 │   ├── app/
-│   │   ├── main.py               # FastAPI entrypoint, CORS, lifespan startup & DB seed
+│   │   ├── main.py               # FastAPI entrypoint, CORS, and lifespan startup
 │   │   ├── config/               # Pydantic Settings & environment config
 │   │   ├── core/                 # JWT security, password hashing, RBAC, exceptions
 │   │   ├── db/                   # Async SQLAlchemy engine, models, and seed data

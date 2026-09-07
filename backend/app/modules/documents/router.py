@@ -38,6 +38,7 @@ from app.modules.documents.schemas import (
     DocumentVersionResponse,
     DocumentUpdate,
 )
+from app.config.settings import settings
 from app.modules.storage.service import storage_service
 from app.workers.async_tasks import process_document_pipeline
 
@@ -171,8 +172,8 @@ async def upload_document(
 
     storage_obj = StorageObject(
         version_id=ver_id,
-        storage_provider="local",
-        bucket="nyayavault-documents",
+        storage_provider=settings.STORAGE_PROVIDER,
+        bucket=settings.STORAGE_BUCKET,
         storage_key=s_key,
         file_size=size,
         is_tampered_simulated=False,
