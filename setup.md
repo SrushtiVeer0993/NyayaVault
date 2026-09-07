@@ -221,23 +221,44 @@ Ensure your `QDRANT_VECTOR_SIZE` matches your configured `EMBEDDING_MODEL`:
 
 ## 4. Infrastructure Services Setup
 
-### PostgreSQL (Relational Database)
+### Supabase (Relational Database)
 
-Run PostgreSQL in Docker:
-```bash
-docker run -d \
-  --name nyayavault-postgres \
-  -e POSTGRES_USER=nyayavault \
-  -e POSTGRES_PASSWORD=nyayavault \
-  -e POSTGRES_DB=nyayavault \
-  -p 5432:5432 \
-  postgres:15-alpine
+NyayaVault uses **Supabase** as its managed PostgreSQL database. No local Postgres container is needed.
+
+#### Step 1: Configure your Supabase credentials in `backend/.env`
+
+```env
+# Connection pooler URL (Transaction mode — required for asyncpg)
+DATABASE_URL=postgresql+asyncpg://<user>:<password>@<host>:6543/postgres?prepared_statement_cache_size=0
+
+SUPABASE_URL=https://<your-project-id>.supabase.co
+SUPABASE_ANON_KEY=<your-supabase-anon-key>
 ```
 
-Check database connection:
-```bash
-docker exec -it nyayavault-postgres psql -U nyayavault -d nyayavault -c "\l"
+Find these values in your Supabase project dashboard under **Settings → Database → Connection string (Transaction pooler)**.
+
+#### Step 2: Apply the schema bootstrap script
+
+Open your **Supabase SQL Editor** and run the contents of:
+
 ```
+backend/supabase_bootstrap.sql
+```
+
+This script is **idempotent** — safe to re-run at any time. It creates all 26 tables, 41 indexes, 6 updated_at triggers, and seeds static reference data (roles, permissions, default admin account).
+
+#### Step 3: Verify connectivity
+
+Once the backend is running, call:
+```bash
+curl http://localhost:8000/api/v1/health/db
+```
+Expected response:
+```json
+{"status": "UP", "database": "CONNECTED", "url_type": "postgresql+asyncpg"}
+```
+
+> **Note:** The backend seeds additional demo users and sample case data automatically on first startup.
 
 ---
 
@@ -338,7 +359,7 @@ npm run dev
 
 ## 7. Default Application & Service Credentials
 
-### User Role Accounts (Auto-seeded)
+### User Role Accounts (Auto-seeded on first startup)
 
 | Role | Email | Password |
 |---|---|---|
@@ -347,11 +368,13 @@ npm run dev
 | **Forensic Staff** | `forensics@nyayavault.gov.in` | `NyayaVault@2026` |
 | **Senior Officer** | `senior@nyayavault.gov.in` | `NyayaVault@2026` |
 
+> The admin account is seeded by `supabase_bootstrap.sql`. The remaining three accounts are seeded by the Python backend on first startup.
+
 ### Infrastructure Credentials
 
 | Service | Connection / Auth |
 |---|---|
-| **PostgreSQL** | User: `nyayavault` \| Pass: `nyayavault` \| Port: `5432` |
+| **Supabase** | Configure `DATABASE_URL` in `backend/.env` from Supabase dashboard |
 | **MinIO** | User: `minioadmin` \| Pass: `minioadmin` \| Console Port: `9001` |
 | **Qdrant** | REST: `http://localhost:6333` \| gRPC: `6334` \| Dashboard: `http://localhost:6333/dashboard` |
 | **Redis** | Endpoint: `localhost:6379` |

@@ -1,6 +1,5 @@
 from .base import Base
 from .session import engine, AsyncSessionLocal, get_db
-from .init_db import init_db_schema, seed_db
 from .models import (
     User,
     RegistrationRequest,
@@ -35,8 +34,6 @@ __all__ = [
     "engine",
     "AsyncSessionLocal",
     "get_db",
-    "init_db_schema",
-    "seed_db",
     "User",
     "RegistrationRequest",
     "Role",
