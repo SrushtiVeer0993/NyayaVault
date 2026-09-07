@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { Upload, FileText, Check } from 'lucide-react';
 import {
@@ -11,11 +11,20 @@ import { DOCUMENT_TYPES } from '../data/mockData';
 export default function Documents() {
   const { state, addDocument } = useApp();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const fileInputRef = useRef(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
-  const [caseFilter, setCaseFilter] = useState('All');
+  const [caseFilter, setCaseFilter] = useState(searchParams.get('case') || 'All');
+
+  useEffect(() => {
+    const caseParam = searchParams.get('case');
+    if (caseParam) {
+      setCaseFilter(caseParam);
+      setUploadForm((prev) => ({ ...prev, caseId: caseParam }));
+    }
+  }, [searchParams]);
   const [integrityFilter, setIntegrityFilter] = useState('All');
   const [classFilter, setClassFilter] = useState('All');
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -23,7 +32,7 @@ export default function Documents() {
   const [uploadForm, setUploadForm] = useState({
     name: '',
     type: DOCUMENT_TYPES[0],
-    caseId: state.cases[0]?.id || '',
+    caseId: (caseFilter !== 'All' ? caseFilter : state.cases[0]?.id) || '',
     classification: 'Confidential',
     accessLevel: 'Case Team',
     description: '',
@@ -61,7 +70,7 @@ export default function Documents() {
     const targetCaseId = uploadForm.caseId || state.cases[0]?.id || 'case_mh_01428';
     await addDocument(
       {
-        name: uploadForm.name.endsWith('.pdf') ? uploadForm.name : `${uploadForm.name}.pdf`,
+        name: uploadForm.name,
         type: uploadForm.type,
         caseId: targetCaseId,
         classification: uploadForm.classification,
@@ -198,7 +207,7 @@ export default function Documents() {
               <div className="text-sm font-medium text-[#0F2747]">
                 {selectedFile ? selectedFile.name : 'Click to browse or drop file here'}
               </div>
-              <div className="text-xs text-slate-400 mt-1">PDF, DOC, DOCX up to 50MB</div>
+              <div className="text-xs text-slate-400 mt-1">Any file type — PDF, images, video, audio, text — up to 50MB</div>
             </div>
             <Input
               label="Document Title *"

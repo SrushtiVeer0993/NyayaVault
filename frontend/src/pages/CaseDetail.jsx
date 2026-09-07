@@ -18,6 +18,10 @@ export default function CaseDetail() {
   const caseEvidence = state.evidence.filter(e => e.caseId === id);
   const caseAudit = state.auditEvents.filter(e => e.caseId === id);
   const caseSecEvents = state.securityEvents.filter(e => e.caseId === id);
+  
+  const handleViewDocuments = () => {
+    navigate(`/documents?case=${id}`);
+  };
 
   if (!caseData) {
     return (
@@ -85,7 +89,7 @@ export default function CaseDetail() {
             <Button variant="secondary" size="sm" onClick={() => navigate('/cases')}>
               <ArrowLeft size={13} /> Cases
             </Button>
-            <Button variant="primary" size="sm" onClick={() => navigate('/documents')}>
+            <Button variant="primary" size="sm" onClick={handleViewDocuments}>
               <FileText size={13} /> View Documents
             </Button>
           </div>

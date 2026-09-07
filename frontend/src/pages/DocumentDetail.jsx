@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { api } from '../api/apiClient';
@@ -35,6 +35,28 @@ export default function DocumentDetail() {
 
   const docAudit = state.auditEvents.filter(e => e.resourceId === id).slice(0, 10);
   const currentDoc = state.documents.find(d => d.id === id);
+  
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [previewError, setPreviewError] = useState(false);
+
+  useEffect(() => {
+    let objectUrl = null;
+    setPreviewUrl(null);
+    setPreviewError(false);
+    (async () => {
+      try {
+        const blob = await api.downloadDocument(id);
+        objectUrl = window.URL.createObjectURL(blob);
+        setPreviewUrl(objectUrl);
+      } catch (err) {
+        console.error('Preview load error:', err);
+        setPreviewError(true);
+      }
+    })();
+    return () => {
+      if (objectUrl) window.URL.revokeObjectURL(objectUrl);
+    };
+  }, [id]);
 
   const handleVerify = async () => {
     setVerifying(true);
@@ -145,13 +167,47 @@ export default function DocumentDetail() {
           {/* Document Preview */}
           <Card>
             <div className="text-xs font-semibold text-[#475569] uppercase tracking-wide mb-3">Document Preview</div>
-            <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded h-48 flex flex-col items-center justify-center">
-              <FileText size={32} className="text-slate-300 mb-2" />
-              <div className="text-sm text-[#475569] font-medium">{doc.name}</div>
-              <div className="text-xs text-slate-400 mt-1">{doc.type} · {doc.size}</div>
-              <Button variant="ghost" size="sm" className="mt-3" onClick={handleDownload}>
-                <Download size={13} /> Open File
-              </Button>
+            <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded overflow-hidden flex flex-col items-center justify-center min-h-48">
+              {!previewUrl && !previewError && (
+                <div className="py-10 flex flex-col items-center gap-2">
+                  <Spinner size="sm" />
+                  <div className="text-xs text-slate-400">Loading preview...</div>
+                </div>
+              )}
+
+              {previewUrl && doc.mimeType?.startsWith('image/') && (
+                <img src={previewUrl} alt={doc.name} className="w-full max-h-72 object-contain" />
+              )}
+
+              {previewUrl && doc.mimeType?.startsWith('video/') && (
+                <video src={previewUrl} controls className="w-full max-h-72" />
+              )}
+
+              {previewUrl && doc.mimeType?.startsWith('audio/') && (
+                <audio src={previewUrl} controls className="w-full my-6 px-3" />
+              )}
+
+              {previewUrl && doc.mimeType === 'application/pdf' && (
+                <iframe src={previewUrl} title={doc.name} className="w-full h-72 border-0" />
+              )}
+
+              {previewUrl && doc.mimeType?.startsWith('text/') && (
+                <iframe src={previewUrl} title={doc.name} className="w-full h-56 border-0 bg-white" />
+              )}
+
+              {(previewError || (previewUrl && !doc.mimeType?.startsWith('image/') && !doc.mimeType?.startsWith('video/') && !doc.mimeType?.startsWith('audio/') && doc.mimeType !== 'application/pdf' && !doc.mimeType?.startsWith('text/'))) && (
+                <div className="py-10 flex flex-col items-center gap-2">
+                  <FileText size={32} className="text-slate-300" />
+                  <div className="text-sm text-[#475569] font-medium">{doc.name}</div>
+                  <div className="text-xs text-slate-400">{doc.type} · {doc.size}</div>
+                </div>
+              )}
+
+              <div className="w-full border-t border-[#E2E8F0] p-2 flex justify-center bg-white">
+                <Button variant="ghost" size="sm" onClick={handleDownload}>
+                  <Download size={13} /> Download
+                </Button>
+              </div>
             </div>
           </Card>
 

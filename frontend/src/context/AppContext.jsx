@@ -8,7 +8,8 @@ const AppContext = createContext(null);
 const initialState = {
   loading: true,
   error: null,
-  currentUser: USERS[0],
+  isAuthenticated: false,
+  currentUser: null,
   currentRole: ROLES.INVESTIGATING_OFFICER,
   cases: [],
   documents: [],
@@ -42,7 +43,14 @@ function normalizeCase(c) {
     status: c.status,
     priority: c.priority,
     sensitivity: c.sensitivity,
+    sensitivityLevel: c.sensitivity,
     assignedOfficer: c.assigned_officer || 'Unassigned',
+    officers: c.assigned_officer ? [c.assigned_officer] : ['Unassigned'],
+    sections: c.legal_sections
+      ? (Array.isArray(c.legal_sections) ? c.legal_sections : String(c.legal_sections).split(',').map(s => s.trim()))
+      : [],
+    station: c.department || 'Not specified',
+    integrityState: 'Verified',
     createdDate: c.created_at ? c.created_at.split('T')[0] : '',
     lastUpdated: c.updated_at ? c.updated_at.split('T')[0] : '',
     documentCount: 0,
@@ -63,6 +71,7 @@ function normalizeDocument(d) {
     status: d.status,
     uploadDate: d.created_at,
     versionId: d.current_version_id || latest?.id,
+    mimeType: latest?.mime_type || 'application/octet-stream',
     version: latest ? `${latest.version_number}.0` : '1.0',
     sha256: latest?.sha256_hash || 'Pending',
     integrityStatus: 'Verified',
@@ -200,6 +209,21 @@ function appReducer(state, action) {
         certificates: action.payload.certificates,
         analytics: action.payload.analytics,
       };
+    case 'SET_AUTH':
+      return {
+        ...state,
+        isAuthenticated: true,
+        currentUser: action.user,
+      };
+    case 'LOGOUT':
+      return {
+        ...state,
+        isAuthenticated: false,
+        currentUser: null,
+        cases: [],
+        documents: [],
+        evidence: [],
+      };
     case 'SWITCH_ROLE': {
       const user = USERS.find((u) => u.role === action.role) || USERS[0];
       return {
@@ -335,6 +359,23 @@ export function AppProvider({ children }) {
   }, [authLoading, authUser, loadAllData]);
 
   // Actions wired to Backend Endpoints
+  async function login(email, password) {
+    const res = await api.login(email, password);
+    setAuthToken(res.access_token);
+    const normalizedUser = {
+      ...res.user,
+      name: res.user.full_name || res.user.name || res.user.email,
+      avatar: (res.user.full_name || res.user.email || 'NY').slice(0, 2).toUpperCase(),
+    };
+    dispatch({ type: 'SET_AUTH', user: normalizedUser });
+    return normalizedUser;
+  }
+
+  function logout() {
+    api.logout().catch(() => {});
+    setAuthToken(null);
+    dispatch({ type: 'LOGOUT' });
+  }
 
   async function switchRole(role) {
     dispatch({ type: 'SWITCH_ROLE', role });
@@ -487,6 +528,8 @@ export function AppProvider({ children }) {
     state,
     dispatch,
     loadAllData,
+    login,
+    logout,
     switchRole,
     addCase,
     addDocument,

@@ -91,7 +91,7 @@ async def get_dashboard_metrics(
 
 @router.get("/operational", response_model=OperationalAnalyticsResponse)
 async def get_operational_analytics(
-    window_days: Literal[7, 30, 90] = Query(30, description="Rolling analytics window in days."),
+    window_days: int = Query(30, description="Rolling analytics window in days. Allowed: 7, 30, 90."),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_roles(ANALYTICS_ROLES)),
     _: User = Depends(require_clearance("Level 4")),
@@ -101,6 +101,9 @@ async def get_operational_analytics(
     This endpoint deliberately excludes document content, filenames, hashes, audit
     metadata, actor identities, resource identifiers, and security descriptions.
     """
+    if window_days not in (7, 30, 90):
+        window_days = 30
+
     now = datetime.now(timezone.utc)
     window_start = now - timedelta(days=window_days)
 
