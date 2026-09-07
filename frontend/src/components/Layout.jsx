@@ -100,6 +100,14 @@ export default function Layout({ children }) {
     navigate('/login', { replace: true });
   };
 
+  if (!state.currentUser) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-sm text-slate-400">
+        Loading NyayaVault...
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-[#F8FAFC] overflow-hidden font-sans text-slate-800">
       {/* Collapsible Sidebar with Hover Expansion */}
