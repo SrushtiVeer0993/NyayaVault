@@ -34,6 +34,7 @@ class RegistrationRequestResponse(BaseModel):
     justification: str
     requested_role: str
     supporting_document_name: Optional[str] = None
+    id_card_name: Optional[str] = None
     status: str
     approved_by: Optional[str] = None
     approved_at: Optional[datetime] = None

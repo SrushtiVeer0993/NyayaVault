@@ -75,7 +75,7 @@ export const api = {
   signup: (registrationData) =>
     request('/auth/signup', {
       method: 'POST',
-      body: JSON.stringify(registrationData),
+      body: registrationData instanceof FormData ? registrationData : JSON.stringify(registrationData),
     }),
   getMe: () => request('/auth/me'),
   logout: () => request('/auth/logout', { method: 'POST' }),
@@ -88,6 +88,7 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ reason }),
     }),
+  getRegistrationIdCardUrl: (id) => request(`/auth/registration-requests/${id}/id-card-url`),
 
   // 2. Cases
   getCases: (params = {}) => {
@@ -113,6 +114,7 @@ export const api = {
   getCaseDocuments: (id) => request(`/cases/${id}/documents`),
   getCaseEvidence: (id) => request(`/cases/${id}/evidence`),
   getCaseActivity: (id) => request(`/cases/${id}/activity`),
+  getUsers: () => request('/users'),
 
   // 3. Documents
   getDocuments: (params = {}) => {

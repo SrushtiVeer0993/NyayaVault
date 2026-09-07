@@ -1,6 +1,9 @@
 from datetime import datetime, timezone
+from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials
+from pydantic import ValidationError
+from starlette.datastructures import UploadFile
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,6 +28,7 @@ from app.modules.auth.schemas import (
     RegistrationRequestResponse,
     SignupRequest,
 )
+from app.modules.storage.service import storage_service
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -45,12 +49,31 @@ async def require_authenticated_admin(
 
 
 @router.post("/signup", response_model=RegistrationRequestResponse, status_code=status.HTTP_201_CREATED)
-async def signup(req: SignupRequest, request: Request, db: AsyncSession = Depends(get_db)):
+async def signup(request: Request, db: AsyncSession = Depends(get_db)):
+    id_card: UploadFile | None = None
+    if "multipart/form-data" in request.headers.get("content-type", ""):
+        form = await request.form()
+        form_data = {key: value for key, value in form.items() if key != "id_card"}
+        id_card = form.get("id_card")
+        if not isinstance(id_card, UploadFile) or not id_card.filename:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="An officer ID card is required.")
+        try:
+            req = SignupRequest.model_validate(form_data)
+        except ValidationError as exc:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=exc.errors()) from exc
+    else:
+        try:
+            req = SignupRequest.model_validate(await request.json())
+        except ValidationError as exc:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=exc.errors()) from exc
     existing_user = await db.execute(
         select(User).where(or_(User.email == req.email, User.employee_id == req.employee_id))
     )
     if existing_user.scalars().first():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="An account already exists for these details.")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="An account already exists for this email or employee ID. Please sign in instead.",
+        )
 
     existing_request = await db.execute(
         select(RegistrationRequest).where(
@@ -59,7 +82,20 @@ async def signup(req: SignupRequest, request: Request, db: AsyncSession = Depend
         )
     )
     if existing_request.scalars().first():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A registration request is already pending.")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A registration request is already pending for this email or employee ID. Wait for administrator approval before submitting again.",
+        )
+
+    id_card_name = req.supporting_document_name
+    id_card_storage_key = None
+    if isinstance(id_card, UploadFile) and id_card.filename:
+        card_bytes = await id_card.read()
+        if len(card_bytes) > 10 * 1024 * 1024:
+            raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="ID card must be 10 MB or smaller.")
+        id_card_name = Path(id_card.filename).name
+        id_card_storage_key = f"registration-requests/{req.employee_id}/id-card/{id_card_name}"
+        await storage_service.save_file(card_bytes, id_card_storage_key, id_card.content_type or "application/octet-stream")
 
     registration = RegistrationRequest(
         email=req.email,
@@ -72,6 +108,8 @@ async def signup(req: SignupRequest, request: Request, db: AsyncSession = Depend
         requested_role=req.requested_role.value,
         password_hash=get_password_hash(req.password),
         supporting_document_name=req.supporting_document_name,
+        id_card_name=id_card_name,
+        id_card_storage_key=id_card_storage_key,
     )
     db.add(registration)
     await db.flush()
@@ -88,6 +126,25 @@ async def signup(req: SignupRequest, request: Request, db: AsyncSession = Depend
     await db.commit()
     await db.refresh(registration)
     return registration
+
+
+@router.get("/registration-requests/{request_id}/id-card-url")
+async def get_registration_id_card_url(
+    request_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_authenticated_admin),
+):
+    result = await db.execute(select(RegistrationRequest).filter_by(id=request_id))
+    registration = result.scalars().first()
+    if not registration:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Registration request not found.")
+    if not registration.id_card_storage_key:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No ID card was uploaded.")
+    return {"url": await storage_service.create_download_url(
+        registration.id_card_storage_key,
+        registration.id_card_name or "id-card",
+        "application/octet-stream",
+    )}
 
 
 @router.get("/registration-requests", response_model=list[RegistrationRequestResponse])

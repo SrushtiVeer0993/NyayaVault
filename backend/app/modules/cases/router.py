@@ -188,7 +188,7 @@ async def assign_officer(
     case_id: str,
     req: CaseAssignRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission("manage_access")),
+    current_user: User = Depends(require_permission("assign_cases")),
 ):
     case_res = await db.execute(select(Case).filter_by(id=case_id))
     case_obj = case_res.scalars().first()
@@ -199,6 +199,11 @@ async def assign_officer(
     target_user = user_res.scalars().first()
     if not target_user:
         raise ResourceNotFoundException("User", req.user_id)
+    if target_user.role != "Investigating Officer":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Forensic tasks can only be assigned to an Investigating Officer.",
+        )
 
     assignment = CaseAssignment(
         case_id=case_id,

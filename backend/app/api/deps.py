@@ -6,7 +6,6 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config.settings import settings
 from app.core.exceptions.handlers import (
     AccessDeniedException,
     AuthenticationFailedException,
@@ -34,12 +33,6 @@ async def get_current_user(
     db: AsyncSession = Depends(get_db),
 ) -> User:
     if not credentials:
-        # Development auto-fallback for seamless local testing if token header is absent
-        admin_res = await db.execute(select(User).filter_by(email="admin@nyayavault.gov.in"))
-        admin_user = admin_res.scalars().first()
-        if admin_user and settings.DEBUG:
-            request.state.current_user = admin_user
-            return admin_user
         raise AuthenticationFailedException("Authentication credentials were not provided.")
 
     token = credentials.credentials

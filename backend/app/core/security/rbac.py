@@ -19,6 +19,7 @@ class PermissionEnum(str, Enum):
     TRANSFER = "transfer"
     SIGN = "sign"
     GENERATE_CERTIFICATE = "generate_certificate"
+    ASSIGN_CASES = "assign_cases"
     MANAGE_ACCESS = "manage_access"
     MANAGE_USERS = "manage_users"
     VIEW_SECURITY_EVENTS = "view_security_events"
@@ -34,6 +35,7 @@ ROLE_PERMISSIONS_MAP: Dict[str, List[str]] = {
         PermissionEnum.TRANSFER.value,
         PermissionEnum.SIGN.value,
         PermissionEnum.GENERATE_CERTIFICATE.value,
+        PermissionEnum.VIEW_SECURITY_EVENTS.value,
     ],
     RoleEnum.FORENSIC_STAFF.value: [
         PermissionEnum.VIEW.value,
@@ -42,6 +44,7 @@ ROLE_PERMISSIONS_MAP: Dict[str, List[str]] = {
         PermissionEnum.VERIFY.value,
         PermissionEnum.SIGN.value,
         PermissionEnum.GENERATE_CERTIFICATE.value,
+        PermissionEnum.ASSIGN_CASES.value,
     ],
     RoleEnum.SENIOR_OFFICER.value: [
         PermissionEnum.VIEW.value,
@@ -53,6 +56,7 @@ ROLE_PERMISSIONS_MAP: Dict[str, List[str]] = {
         PermissionEnum.GENERATE_CERTIFICATE.value,
         PermissionEnum.VIEW_SECURITY_EVENTS.value,
         PermissionEnum.VIEW_AUDIT_LOGS.value,
+        PermissionEnum.ASSIGN_CASES.value,
     ],
     RoleEnum.ADMINISTRATOR.value: [
         PermissionEnum.VIEW.value,

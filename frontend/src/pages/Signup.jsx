@@ -15,6 +15,7 @@ export default function Signup() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [idCard, setIdCard] = useState(null);
 
   if (isAuthenticated) return <Navigate to="/dashboard" replace />;
 
@@ -27,7 +28,10 @@ export default function Signup() {
     setError('');
     setSubmitting(true);
     try {
-      const response = await signup({ ...form, supporting_document_name: form.supporting_document_name || null });
+      const payload = new FormData();
+      Object.entries(form).forEach(([key, value]) => payload.append(key, value || ''));
+      if (idCard) payload.append('id_card', idCard);
+      const response = await signup(payload);
       setResult(response);
     } catch (err) {
       setError(err.message);
@@ -68,7 +72,7 @@ export default function Signup() {
           <label className="text-sm font-medium text-slate-700">Designation<input required value={form.designation} onChange={(e) => update('designation', e.target.value)} className="field" /></label>
           <label className="text-sm font-medium text-slate-700">Posting location<input required value={form.posting_location} onChange={(e) => update('posting_location', e.target.value)} className="field" /></label>
           <label className="text-sm font-medium text-slate-700">Requested role<select value={form.requested_role} onChange={(e) => update('requested_role', e.target.value)} className="field">{roles.map((role) => <option key={role}>{role}</option>)}</select></label>
-          <label className="text-sm font-medium text-slate-700 md:col-span-2">Supporting document filename (optional)<input value={form.supporting_document_name} onChange={(e) => update('supporting_document_name', e.target.value)} placeholder="Upload integration will be added next" className="field" /></label>
+          <label className="text-sm font-medium text-slate-700 md:col-span-2">Officer ID card<input required type="file" accept="image/*,.pdf" onChange={(e) => setIdCard(e.target.files?.[0] || null)} className="field" /></label>
           <label className="text-sm font-medium text-slate-700 md:col-span-2">Why do you need access?<textarea required minLength="10" value={form.justification} onChange={(e) => update('justification', e.target.value)} className="field min-h-28" /></label>
           <div className="md:col-span-2 flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-between sm:items-center"><Link to="/login" className="text-sm font-semibold text-cyan-700">Already have an account?</Link><button disabled={submitting} className="rounded-lg bg-cyan-700 px-5 py-2.5 font-semibold text-white hover:bg-cyan-800 disabled:opacity-60">{submitting ? 'Submitting...' : 'Submit access request'}</button></div>
         </form>
