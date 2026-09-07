@@ -128,8 +128,8 @@ export const RBAC_PERMISSIONS = {
     generateCertificate: true,
     manageAccess: false,
     manageUsers: false,
-    viewSecurityEvents: false,
-    viewAuditLogs: true,
+    viewSecurityEvents: true,
+    viewAuditLogs: false,
   },
   [ROLES.FORENSIC_STAFF]: {
     view: true,
@@ -144,7 +144,8 @@ export const RBAC_PERMISSIONS = {
     manageAccess: false,
     manageUsers: false,
     viewSecurityEvents: false,
-    viewAuditLogs: true,
+    viewAuditLogs: false,
+    assignCases: true,
   },
   [ROLES.SENIOR_OFFICER]: {
     view: true,

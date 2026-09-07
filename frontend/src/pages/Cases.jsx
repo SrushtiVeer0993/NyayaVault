@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { Plus, FolderOpen } from 'lucide-react';
@@ -7,6 +7,8 @@ import {
   Button, Modal, Input, formatDate,
 } from '../components/ui';
 import { CASE_TYPES, CASE_PRIORITIES, CASE_STATUSES } from '../data/mockData';
+import { ROLES } from '../data/mockData';
+import { api } from '../api/apiClient';
 
 export default function Cases() {
   const { state, addCase } = useApp();
@@ -17,10 +19,28 @@ export default function Cases() {
   const [priorityFilter, setPriorityFilter] = useState('All');
   const [sortBy, setSortBy] = useState('lastUpdated');
   const [newCaseOpen, setNewCaseOpen] = useState(false);
+  const [officers, setOfficers] = useState([]);
+  const [selectedOfficer, setSelectedOfficer] = useState({});
   const [newCaseForm, setNewCaseForm] = useState({
     title: '', type: CASE_TYPES[0], priority: 'High', status: 'Active',
     description: '', sensitivityLevel: 'Confidential', sections: '',
   });
+
+  useEffect(() => {
+    if (state.currentRole !== ROLES.FORENSIC_STAFF) return;
+    api.getUsers().then((users) => setOfficers(users.filter((user) => user.role === ROLES.INVESTIGATING_OFFICER))).catch(() => setOfficers([]));
+  }, [state.currentRole]);
+
+  async function assignOfficer(caseId) {
+    const userId = selectedOfficer[caseId];
+    if (!userId) return;
+    try {
+      await api.assignCaseOfficer(caseId, userId, 'Forensic Assignment');
+      window.location.reload();
+    } catch (err) {
+      alert(`Failed to assign task: ${err.message}`);
+    }
+  }
 
   const filtered = state.cases
     .filter(c => {
@@ -84,9 +104,10 @@ export default function Cases() {
     { header: 'Docs', key: 'documentCount', render: c => <span className="text-xs font-medium">{c.documentCount}</span> },
     { header: 'Evidence', key: 'evidenceCount', render: c => <span className="text-xs font-medium">{c.evidenceCount}</span> },
     { header: 'Actions', key: 'actions', render: c => (
-      <Button variant="ghost" size="sm" onClick={e => { e.stopPropagation(); navigate(`/cases/${c.id}`); }}>
-        Open
-      </Button>
+      <div className="flex items-center gap-2">
+        {state.currentRole === ROLES.FORENSIC_STAFF && <><select value={selectedOfficer[c.id] || ''} onChange={(e) => { e.stopPropagation(); setSelectedOfficer((current) => ({ ...current, [c.id]: e.target.value })); }} onClick={(e) => e.stopPropagation()} className="max-w-36 rounded border border-slate-200 px-2 py-1 text-xs"><option value="">Assign officer</option>{officers.map((officer) => <option key={officer.id} value={officer.id}>{officer.full_name}</option>)}</select><Button variant="secondary" size="sm" onClick={(e) => { e.stopPropagation(); assignOfficer(c.id); }}>Assign</Button></>}
+        <Button variant="ghost" size="sm" onClick={e => { e.stopPropagation(); navigate(`/cases/${c.id}`); }}>Open</Button>
+      </div>
     )},
   ];
 

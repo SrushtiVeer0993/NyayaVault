@@ -27,6 +27,15 @@ const NAV_ITEMS = [
   { label: 'Analytics', icon: BarChart2, to: '/analytics' },
 ];
 
+function navigationForRole(role) {
+  const hiddenForInvestigators = new Set(['/audit', '/access-control', '/analytics']);
+  const forensicItems = new Set(['/dashboard', '/cases', '/documents']);
+  if (role === ROLES.FORENSIC_STAFF) return NAV_ITEMS.filter((item) => forensicItems.has(item.to));
+  if (role === ROLES.INVESTIGATING_OFFICER) return NAV_ITEMS.filter((item) => !hiddenForInvestigators.has(item.to));
+  if (role === ROLES.SENIOR_OFFICER) return NAV_ITEMS.filter((item) => item.to !== '/access-control');
+  return NAV_ITEMS;
+}
+
 const ROLE_COLORS = {
   [ROLES.INVESTIGATING_OFFICER]: 'bg-blue-100 text-blue-800 border-blue-200',
   [ROLES.FORENSIC_STAFF]: 'bg-purple-100 text-purple-800 border-purple-200',
@@ -144,7 +153,7 @@ export default function Layout({ children }) {
 
         {/* Navigation Items */}
         <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-1">
-          {[...NAV_ITEMS, ...(state.currentRole === ROLES.ADMINISTRATOR ? [{ label: 'Registration Requests', icon: Users, to: '/registration-requests' }] : [])].map(({ label, icon: Icon, to }) => (
+          {[...navigationForRole(state.currentRole), ...(state.currentRole === ROLES.ADMINISTRATOR ? [{ label: 'Registration Requests', icon: Users, to: '/registration-requests' }] : [])].map(({ label, icon: Icon, to }) => (
             <NavLink
               key={to}
               to={to}

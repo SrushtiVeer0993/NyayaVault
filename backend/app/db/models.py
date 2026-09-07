@@ -66,6 +66,8 @@ class RegistrationRequest(Base):
     requested_role = Column(String(64), nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     supporting_document_name = Column(String(255), nullable=True)
+    id_card_name = Column(String(255), nullable=True)
+    id_card_storage_key = Column(String(512), nullable=True)
     status = Column(String(16), default="PENDING", nullable=False, index=True)
     approved_by = Column(String(36), ForeignKey("users.id"), nullable=True)
     approved_at = Column(DateTime(timezone=True), nullable=True)

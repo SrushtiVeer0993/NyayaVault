@@ -10,10 +10,40 @@ import {
   MetricCard, Card, SectionHeader, Badge, SeverityBadge, IntegrityBadge,
   formatDateTime, formatDate, truncateHash, Button,
 } from '../components/ui';
+import { ROLES } from '../data/mockData';
+
+function ForensicDashboard({ state, navigate }) {
+  const forensicDocuments = state.documents.filter((doc) => /forensic/i.test(doc.type || ''));
+  const assignedCases = state.cases.filter((item) => item.assignedOfficer && item.assignedOfficer !== 'Unassigned');
+  const pendingWork = forensicDocuments.filter((doc) => doc.status === 'Review Required' || doc.integrityStatus !== 'Verified');
+
+  return (
+    <div className="space-y-6 p-5">
+      <div className="rounded-3xl bg-gradient-to-r from-[#24113D] via-[#43216A] to-[#6A315B] p-6 text-white shadow-lg">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+          <div><div className="text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-200">Forensic operations desk</div><h1 className="mt-2 text-3xl font-extrabold">FIR review and laboratory work</h1><p className="mt-2 max-w-2xl text-sm text-fuchsia-100">Review every accessible FIR, assign investigation tasks, and preserve forensic records in the evidence vault.</p></div>
+          <button onClick={() => navigate('/documents')} className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-purple-900"><Upload size={15} /> Upload forensic document</button>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <MetricCard title="Accessible FIRs" value={state.cases.length} subtitle="Available for forensic review" icon={FolderOpen} onClick={() => navigate('/cases')} />
+        <MetricCard title="Assigned Workstreams" value={assignedCases.length} subtitle="Officer-linked investigations" icon={ArrowRightLeft} onClick={() => navigate('/cases')} variant="info" />
+        <MetricCard title="Forensic Documents" value={forensicDocuments.length} subtitle="Reports and lab records" icon={FileText} onClick={() => navigate('/documents')} variant="warning" />
+        <MetricCard title="Needs Attention" value={pendingWork.length} subtitle="Review or integrity follow-up" icon={AlertTriangle} onClick={() => navigate('/documents')} variant={pendingWork.length ? 'danger' : 'success'} />
+      </div>
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Card><SectionHeader title="All FIRs and case files" subtitle="Read-only case visibility with task assignment from the case workspace" actions={<Button variant="secondary" size="sm" onClick={() => navigate('/cases')}>Open FIR registry <ArrowUpRight size={13} /></Button>} /><div className="mt-2 divide-y divide-slate-100">{state.cases.slice(0, 6).map((item) => <button key={item.id} onClick={() => navigate(`/cases/${item.id}`)} className="flex w-full items-center justify-between gap-3 py-3 text-left hover:bg-slate-50"><span><span className="block font-mono text-xs font-bold text-slate-700">{item.id}</span><span className="block text-sm font-semibold text-slate-900">{item.title}</span></span><Badge variant={item.priority === 'Critical' ? 'danger' : 'info'}>{item.assignedOfficer}</Badge></button>)}</div></Card>
+        <Card><SectionHeader title="Forensic queue" subtitle="Documents requiring laboratory review or verification" actions={<Button variant="secondary" size="sm" onClick={() => navigate('/documents')}>View vault <ArrowUpRight size={13} /></Button>} /><div className="mt-3 space-y-3">{pendingWork.length === 0 ? <div className="py-8 text-center text-sm text-slate-500">No forensic work requires attention.</div> : pendingWork.slice(0, 5).map((doc) => <button key={doc.id} onClick={() => navigate(`/documents/${doc.id}`)} className="w-full rounded-xl border border-amber-200 bg-amber-50 p-3 text-left"><div className="flex items-center justify-between"><span className="text-xs font-bold text-amber-800">{doc.type || 'Document'}</span><ChevronRight size={15} className="text-amber-700" /></div><div className="mt-1 text-sm font-semibold text-slate-900">{doc.name}</div><div className="mt-1 text-xs text-slate-500">Case {doc.caseId || 'Unlinked'}</div></button>)}</div></Card>
+      </div>
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const { state } = useApp();
   const navigate = useNavigate();
+
+  if (state.currentRole === ROLES.FORENSIC_STAFF) return <ForensicDashboard state={state} navigate={navigate} />;
 
   const activeCases = state.cases.filter(c => c.status === 'Active' || c.status === 'Under Investigation').length;
   const totalDocs = state.documents.length;
@@ -37,7 +67,7 @@ export default function Dashboard() {
     { label: 'Section 65B Cert', icon: Award, to: '/certificates', color: 'from-amber-500/10 to-orange-500/10 hover:from-amber-500/20 hover:to-orange-500/20 text-amber-800' },
     { label: 'Verify Integrity', icon: ShieldCheck, to: '/integrity', color: 'from-emerald-500/10 to-teal-500/10 hover:from-emerald-500/20 hover:to-teal-500/20 text-emerald-800' },
     { label: 'Custody Chain', icon: ArrowRightLeft, to: '/chain-of-custody', color: 'from-purple-500/10 to-pink-500/10 hover:from-purple-500/20 hover:to-pink-500/20 text-purple-800' },
-    { label: 'Audit Ledger', icon: ClipboardList, to: '/audit', color: 'from-slate-500/10 to-slate-600/10 hover:from-slate-500/20 hover:to-slate-600/20 text-slate-800' },
+    ...(state.currentRole === ROLES.SENIOR_OFFICER || state.currentRole === ROLES.ADMINISTRATOR ? [{ label: 'Audit Ledger', icon: ClipboardList, to: '/audit', color: 'from-slate-500/10 to-slate-600/10 hover:from-slate-500/20 hover:to-slate-600/20 text-slate-800' }] : []),
   ];
 
   return (

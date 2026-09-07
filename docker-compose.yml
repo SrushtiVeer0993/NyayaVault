@@ -22,6 +22,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
+    volumes:
+      - ./backend:/app
     environment:
       - APP_ENV=development
       - DEBUG=true

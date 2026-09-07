@@ -50,16 +50,16 @@ function ApplicationRoutes() {
         <Route path="/cases/:id" element={<CaseDetail />} />
         <Route path="/documents" element={<Documents />} />
         <Route path="/documents/:id" element={<DocumentDetail />} />
-        <Route path="/evidence" element={<Evidence />} />
-        <Route path="/search" element={<AISearch />} />
-        <Route path="/chain-of-custody" element={<ChainOfCustody />} />
-        <Route path="/integrity" element={<Integrity />} />
-        <Route path="/security" element={<SecurityCenter />} />
-        <Route path="/audit" element={<AuditTrail />} />
+        <Route path="/evidence" element={<RoleRoute roles={['Investigating Officer', 'Senior Officer', 'Administrator']}><Evidence /></RoleRoute>} />
+        <Route path="/search" element={<RoleRoute roles={['Investigating Officer', 'Senior Officer', 'Administrator']}><AISearch /></RoleRoute>} />
+        <Route path="/chain-of-custody" element={<RoleRoute roles={['Investigating Officer', 'Senior Officer', 'Administrator']}><ChainOfCustody /></RoleRoute>} />
+        <Route path="/integrity" element={<RoleRoute roles={['Investigating Officer', 'Senior Officer', 'Administrator']}><Integrity /></RoleRoute>} />
+        <Route path="/security" element={<RoleRoute roles={['Investigating Officer', 'Senior Officer', 'Administrator']}><SecurityCenter /></RoleRoute>} />
+        <Route path="/audit" element={<RoleRoute roles={['Senior Officer', 'Administrator']}><AuditTrail /></RoleRoute>} />
         <Route path="/certificates" element={<Certificates />} />
-        <Route path="/access-control" element={<AccessControl />} />
+        <Route path="/access-control" element={<RoleRoute roles={['Administrator']}><AccessControl /></RoleRoute>} />
         <Route path="/registration-requests" element={<AdminOnly><RegistrationRequests /></AdminOnly>} />
-        <Route path="/analytics" element={<Analytics />} />
+        <Route path="/analytics" element={<RoleRoute roles={['Senior Officer', 'Administrator']}><Analytics /></RoleRoute>} />
         <Route path="/settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
@@ -82,4 +82,9 @@ export default function App() {
       </AppProvider>
     </AuthProvider>
   );
+}
+
+function RoleRoute({ roles, children }) {
+  const { user } = useAuth();
+  return roles.includes(user?.role) ? children : <Navigate to="/dashboard" replace />;
 }

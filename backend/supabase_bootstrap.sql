@@ -75,6 +75,8 @@ CREATE TABLE IF NOT EXISTS registration_requests (
     requested_role           VARCHAR(64)  NOT NULL,
     password_hash            VARCHAR(255) NOT NULL,
     supporting_document_name VARCHAR(255),
+    id_card_name            VARCHAR(255),
+    id_card_storage_key     VARCHAR(512),
     status                   VARCHAR(16)  NOT NULL DEFAULT 'PENDING',
     approved_by              VARCHAR(36)  REFERENCES users(id),
     approved_at              TIMESTAMPTZ,
@@ -82,6 +84,9 @@ CREATE TABLE IF NOT EXISTS registration_requests (
     created_at               TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at               TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE registration_requests ADD COLUMN IF NOT EXISTS id_card_name VARCHAR(255);
+ALTER TABLE registration_requests ADD COLUMN IF NOT EXISTS id_card_storage_key VARCHAR(512);
 
 CREATE INDEX IF NOT EXISTS idx_reg_email       ON registration_requests (email);
 CREATE INDEX IF NOT EXISTS idx_reg_employee_id ON registration_requests (employee_id);
