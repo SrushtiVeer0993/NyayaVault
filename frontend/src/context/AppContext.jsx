@@ -1,6 +1,7 @@
 import { createContext, useContext, useReducer, useEffect, useCallback, useState } from 'react';
 import { api, setAuthToken } from '../api/apiClient';
 import { USERS, ROLES, RBAC_PERMISSIONS } from '../data/mockData';
+import { useAuth } from './AuthContext';
 
 const AppContext = createContext(null);
 
@@ -174,6 +175,26 @@ function appReducer(state, action) {
   switch (action.type) {
     case 'SET_LOADING':
       return { ...state, loading: action.loading };
+    case 'SET_AUTH_USER': {
+      const user = action.user;
+      const role = user.role || ROLES.INVESTIGATING_OFFICER;
+      return {
+        ...state,
+        currentUser: {
+          ...user,
+          name: user.full_name,
+          avatar: user.full_name?.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase(),
+        },
+        currentRole: role,
+        permissions: RBAC_PERMISSIONS[role] || {},
+        abacAttributes: {
+          ...state.abacAttributes,
+          role,
+          department: user.department,
+          clearanceLevel: Number.parseInt(user.clearance_level?.replace('Level ', ''), 10) || 1,
+        },
+      };
+    }
     case 'SET_DATA':
       return {
         ...state,
@@ -265,6 +286,7 @@ function appReducer(state, action) {
 
 export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
+  const { user: authUser, loading: authLoading } = useAuth();
 
   const loadAllData = useCallback(async () => {
     dispatch({ type: 'SET_LOADING', loading: true });
@@ -327,12 +349,14 @@ export function AppProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    if (state.isAuthenticated) {
+    if (authLoading) return;
+    if (authUser) {
+      dispatch({ type: 'SET_AUTH_USER', user: authUser });
       loadAllData();
     } else {
       dispatch({ type: 'SET_LOADING', loading: false });
     }
-  }, [state.isAuthenticated, loadAllData]);
+  }, [authLoading, authUser, loadAllData]);
 
   // Actions wired to Backend Endpoints
   async function login(email, password) {

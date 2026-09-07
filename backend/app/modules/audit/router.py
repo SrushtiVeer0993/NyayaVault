@@ -8,7 +8,10 @@ from app.api.deps import get_current_user, get_db, require_permission
 from app.core.exceptions.handlers import ResourceNotFoundException
 from app.core.security.hashing import compute_sha256
 from app.db.models import AuditEvent, User
-from app.modules.audit.schemas import AuditEventResponse, AuditChainVerificationResponse
+from app.modules.audit.schemas import (
+    AuditEventResponse,
+    AuditChainVerificationResponse,
+)
 
 router = APIRouter(prefix="/audit", tags=["Audit Trail"])
 
@@ -59,7 +62,20 @@ async def verify_audit_hash_chain(
             message="No audit events recorded yet.",
         )
 
-    expected_prev_hash = events[0].previous_event_hash
+    genesis_hash = compute_sha256(
+        b"GENESIS_AUDIT_BLOCK_NYAYAVAULT_2026"
+    )
+
+    if events[0].previous_event_hash != genesis_hash:
+        return AuditChainVerificationResponse(
+            is_valid=False,
+            total_events=len(events),
+            verified_events=0,
+            broken_event_id=events[0].id,
+            message=f"Genesis hash mismatch at event ID: {events[0].id}",
+        )
+
+    expected_prev_hash = genesis_hash
     for idx, ev in enumerate(events):
         if ev.previous_event_hash != expected_prev_hash:
             return AuditChainVerificationResponse(
@@ -74,6 +90,16 @@ async def verify_audit_hash_chain(
         hash_payload = f"{ev.actor_id}:{ev.actor_role}:{ev.action}:{ev.resource_type}:{ev.resource_id}:{ev.result}:{ev.severity}:{ev.previous_event_hash}:{meta_str}".encode("utf-8")
         calculated = compute_sha256(hash_payload)
 
+        # Verify that the stored event hash matches the calculated hash
+        if calculated != ev.event_hash:
+            return AuditChainVerificationResponse(
+                is_valid=False,
+                total_events=len(events),
+                verified_events=idx,
+                broken_event_id=ev.id,
+                message=f"Hash mismatch detected at event ID: {ev.id}",
+            )
+
         # Update expected prev hash for next iteration
         expected_prev_hash = ev.event_hash
 
@@ -83,7 +109,30 @@ async def verify_audit_hash_chain(
         verified_events=len(events),
         message="Cryptographic audit chain fully verified. Zero tamper detected.",
     )
+    
+@router.get(
+    "/document/{document_id}",
+    response_model=List[AuditEventResponse],
+)
+async def get_document_lifecycle(
+    document_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("view_audit_logs")),
+):
+    """Returns the complete audit lifecycle of a document."""
 
+    result = await db.execute(
+        select(AuditEvent)
+        .where(
+            AuditEvent.resource_type == "document",
+            AuditEvent.resource_id == document_id,
+        )
+        .order_by(AuditEvent.timestamp.asc())
+    )
+
+    events = result.scalars().all()
+
+    return events
 
 @router.get("/{audit_id}", response_model=AuditEventResponse)
 async def get_audit_event(

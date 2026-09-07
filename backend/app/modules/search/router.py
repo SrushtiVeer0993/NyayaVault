@@ -7,14 +7,17 @@ from app.api.deps import get_current_user, get_db
 from app.db.models import SearchDocument, Document, User
 from app.modules.search.schemas import SearchResponse, SearchResultItem
 
+from app.integrations.qdrant_client import qdrant_service
+
 router = APIRouter(prefix="/search", tags=["Search & Retrieval"])
 
 
 @router.get("", response_model=SearchResponse)
 async def search_documents(
     q: str = Query(..., min_length=1),
-    mode: str = Query("hybrid", regex="^(keyword|semantic|hybrid)$"),
+    mode: str = Query("hybrid", pattern="^(keyword|semantic|hybrid)$"),
     case_id: Optional[str] = None,
+
     document_type: Optional[str] = None,
     classification: Optional[str] = None,
     page: int = Query(1, ge=1),
@@ -22,6 +25,40 @@ async def search_documents(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # Vector Search Integration for Semantic/Hybrid modes
+    vector_results = []
+    if mode in ("semantic", "hybrid"):
+        qdrant_hits = await qdrant_service.search_document_vectors(
+            query_text=q,
+            limit=limit,
+            classification_filter=classification,
+        )
+        for hit in qdrant_hits:
+            payload = hit.get("payload", {})
+            doc_class = payload.get("classification", "Restricted")
+
+            # ABAC Clearance Check
+            if current_user.clearance_level == "Level 1" and doc_class not in ["Public", "Restricted"]:
+                continue
+            if current_user.clearance_level in ["Level 2", "Level 3"] and doc_class == "Top Secret":
+                continue
+
+            vector_results.append(
+                SearchResultItem(
+                    document_id=payload.get("document_id", "doc-vec-01"),
+                    title=payload.get("title", "Vector Match Document"),
+                    case_id=payload.get("case_id"),
+                    document_type=payload.get("document_type", "General"),
+                    classification=doc_class,
+                    excerpt=payload.get("text_snippet", q),
+                    score=round(hit.get("score", 0.95), 2),
+                    match_type="semantic" if mode == "semantic" else "hybrid_vector",
+                )
+            )
+
+    if mode == "semantic" and vector_results:
+        return SearchResponse(total=len(vector_results), query=q, mode=mode, results=vector_results)
+
     query = select(SearchDocument)
 
     # Filter query text across title, content_text, tags
@@ -53,7 +90,7 @@ async def search_documents(
     items = result.scalars().all()
 
     # Fallback to search directly in documents if search index is empty
-    if not items:
+    if not items and not vector_results:
         doc_query = select(Document).filter(
             or_(Document.title.ilike(search_pattern), Document.description.ilike(search_pattern))
         )
@@ -81,8 +118,10 @@ async def search_documents(
         ]
         return SearchResponse(total=len(results), query=q, mode=mode, results=results)
 
-    results = []
+    results = list(vector_results)
     for it in items:
+        if any(r.document_id == it.document_id for r in results):
+            continue
         # Create excerpt around match
         idx = it.content_text.lower().find(q.lower())
         start = max(0, idx - 50)
@@ -103,3 +142,4 @@ async def search_documents(
         )
 
     return SearchResponse(total=len(results), query=q, mode=mode, results=results)
+

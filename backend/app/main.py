@@ -1,5 +1,6 @@
 import logging
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
@@ -12,9 +13,9 @@ from app.core.exceptions.handlers import (
     generic_exception_handler,
 )
 from app.core.middleware.audit_middleware import CorrelationIdMiddleware
-from app.db.session import AsyncSessionLocal
-from app.db.init_db import init_db_schema, seed_db
 from app.api.v1.api_router import api_v1_router
+from app.integrations.qdrant_client import qdrant_service
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("nyayavault.main")
@@ -22,14 +23,9 @@ logger = logging.getLogger("nyayavault.main")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Initializing database tables and seed data...")
-    try:
-        await init_db_schema()
-        async with AsyncSessionLocal() as session:
-            await seed_db(session)
-        logger.info("NyayaVault backend initialized successfully.")
-    except Exception as e:
-        logger.error(f"Initialization error: {e}")
+    logger.info(
+        "NyayaVault backend starting. Database provisioning is managed separately."
+    )
     yield
     logger.info("NyayaVault backend shutting down.")
 
@@ -46,6 +42,7 @@ app = FastAPI(
 
 # Middleware
 app.add_middleware(CorrelationIdMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS or ["*"],
@@ -55,9 +52,20 @@ app.add_middleware(
 )
 
 # Exception Handlers
-app.add_exception_handler(NyayaVaultException, nyayavault_exception_handler)
-app.add_exception_handler(RequestValidationError, validation_exception_handler)
-app.add_exception_handler(Exception, generic_exception_handler)
+app.add_exception_handler(
+    NyayaVaultException,
+    nyayavault_exception_handler,
+)
+
+app.add_exception_handler(
+    RequestValidationError,
+    validation_exception_handler,
+)
+
+app.add_exception_handler(
+    Exception,
+    generic_exception_handler,
+)
 
 # Include API Routes
 app.include_router(api_v1_router)
@@ -76,4 +84,10 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+
+    uvicorn.run(
+        "app.main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+    )

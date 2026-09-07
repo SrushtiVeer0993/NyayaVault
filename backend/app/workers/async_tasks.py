@@ -11,6 +11,8 @@ from app.db.models import (
 )
 from app.modules.ai.service import ai_service
 
+from app.integrations.qdrant_client import qdrant_service
+
 logger = logging.getLogger("nyayavault.worker")
 
 
@@ -21,7 +23,7 @@ async def process_document_pipeline(
     filename: str,
     case_id: str,
 ):
-    """Background worker pipeline executing AI OCR, classification, entity extraction, and search indexing"""
+    """Background worker pipeline executing AI OCR, classification, entity extraction, and Qdrant search indexing"""
     async with AsyncSessionLocal() as db:
         try:
             logger.info(f"Starting AI pipeline for document {document_id}, version {version_id}")
@@ -43,7 +45,7 @@ async def process_document_pipeline(
                 file_bytes, filename
             )
 
-            job.progress = 70
+            job.progress = 60
 
             # 3. Save AI Extraction
             extraction = AIExtraction(
@@ -72,11 +74,25 @@ async def process_document_pipeline(
             )
             db.add(search_doc)
 
+            # 4.5. Upsert Document Vector into Qdrant Vector DB
+            await qdrant_service.upsert_document_vector(
+                document_id=document_id,
+                title=filename,
+                text=f"{classification}\n{raw_text}\n{tags_str}",
+                case_id=case_id,
+                document_type=classification,
+                classification="Confidential",
+                metadata=fields,
+            )
+
+            job.progress = 85
+
             # 5. Notify if human review is required
             if review_req:
                 doc_res = await db.execute(select(Document).filter_by(id=document_id))
                 doc_obj = doc_res.scalars().first()
                 owner_id = doc_obj.owner_id if doc_obj and doc_obj.owner_id else "usr_io_001"
+
 
                 notif = Notification(
                     user_id=owner_id,

@@ -72,8 +72,22 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     }),
+  signup: (registrationData) =>
+    request('/auth/signup', {
+      method: 'POST',
+      body: JSON.stringify(registrationData),
+    }),
   getMe: () => request('/auth/me'),
   logout: () => request('/auth/logout', { method: 'POST' }),
+  getRegistrationRequests: (status = 'PENDING') =>
+    request(`/auth/registration-requests?request_status=${encodeURIComponent(status)}`),
+  approveRegistrationRequest: (id) =>
+    request(`/auth/registration-requests/${id}/approve`, { method: 'POST' }),
+  rejectRegistrationRequest: (id, reason) =>
+    request(`/auth/registration-requests/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
 
   // 2. Cases
   getCases: (params = {}) => {
@@ -229,5 +243,7 @@ export const api = {
 
   // 12. Analytics & Health
   getDashboardAnalytics: () => request('/analytics/dashboard'),
+  getOperationalAnalytics: (windowDays = 30, options = {}) =>
+    request(`/analytics/operational?window_days=${windowDays}`, options),
   getHealth: () => request('/health'),
 };

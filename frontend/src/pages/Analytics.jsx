@@ -1,265 +1,271 @@
-import { useMemo } from 'react';
-import { useApp } from '../context/AppContext';
-import { PageHeader, Card } from '../components/ui';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line,
+  Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart,
+  ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
+import {
+  AlertTriangle, FileText, FolderOpen, LockKeyhole, RefreshCw,
+  ShieldAlert, Upload, Users,
+} from 'lucide-react';
 
-const COLORS = ['#0F2747', '#0369A1', '#475569', '#15803D', '#B45309', '#B91C1C', '#7C3AED', '#0891B2', '#64748B'];
+import { api } from '../api/apiClient';
+import { Card, PageHeader, formatDateTime } from '../components/ui';
 
-export default function Analytics() {
-  const { state } = useApp();
+const RANGE_OPTIONS = [7, 30, 90];
 
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-white border border-[#E2E8F0] rounded p-2.5 shadow-sm text-xs">
-          <div className="font-medium text-[#0F2747]">{label}</div>
-          {payload.map((p, i) => (
-            <div key={i} style={{ color: p.color }}>{p.name || p.dataKey}: {p.value}</div>
-          ))}
-        </div>
-      );
-    }
-    return null;
-  };
+function EmptyChart() {
+  return <div className="h-52 flex items-center justify-center text-center text-xs text-slate-500">No activity in selected period.</div>;
+}
 
-  // 1. Documents by Type
-  const documentsByType = useMemo(() => {
-    const counts = {};
-    state.documents.forEach(d => {
-      const t = d.documentType || 'Other';
-      counts[t] = (counts[t] || 0) + 1;
-    });
-    const result = Object.entries(counts).map(([type, count]) => ({ type, count }));
-    return result.length > 0 ? result : [{ type: 'FIR', count: 0 }, { type: 'Charge Sheet', count: 0 }];
-  }, [state.documents]);
+function ChartCard({ title, children, className = '' }) {
+  return (
+    <Card className={className}>
+      <h2 className="text-xs font-semibold text-[#475569] uppercase tracking-wide mb-4">{title}</h2>
+      {children}
+    </Card>
+  );
+}
 
-  // 2. Upload Activity (by month or dummy calendar spread based on docs)
-  const uploadActivity = useMemo(() => {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep'];
-    const map = {};
-    months.forEach(m => { map[m] = 0; });
-    state.documents.forEach(d => {
-      if (d.uploadDate) {
-        const mIdx = new Date(d.uploadDate).getMonth();
-        if (mIdx >= 0 && mIdx < months.length) {
-          map[months[mIdx]] = (map[months[mIdx]] || 0) + 1;
-        }
-      }
-    });
-    // Ensure at least current docs are distributed nicely if upload date is recent
-    if (state.documents.length > 0 && Object.values(map).every(v => v === 0)) {
-      map['Sep'] = state.documents.length;
-    }
-    return Object.entries(map).map(([month, uploads]) => ({ month, uploads }));
-  }, [state.documents]);
+function AnalyticsTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-white border border-[#E2E8F0] rounded-lg p-2.5 shadow-sm text-xs">
+      {label && <div className="font-medium text-[#0F2747] mb-1">{label}</div>}
+      {payload.map((item) => <div key={item.dataKey} style={{ color: item.color }}>{item.name || item.dataKey}: {item.value}</div>)}
+    </div>
+  );
+}
 
-  // 3. Integrity Results
-  const integrityResults = useMemo(() => {
-    let verified = 0;
-    let tampered = 0;
-    let pending = 0;
-    state.documents.forEach(d => {
-      if (d.integrityStatus === 'Verified') verified++;
-      else if (d.integrityStatus === 'Tampered' || d.integrityStatus === 'Mismatch') tampered++;
-      else pending++;
-    });
-    return [
-      { name: 'Verified', value: verified, color: '#15803D' },
-      { name: 'Tampered/Mismatch', value: tampered, color: '#B91C1C' },
-      { name: 'Pending Verification', value: pending, color: '#B45309' },
-    ];
-  }, [state.documents]);
+function DistributionChart({ data, color = '#0F2747' }) {
+  if (!data.length) return <EmptyChart />;
+  return (
+    <ResponsiveContainer width="100%" height={210}>
+      <BarChart data={data} margin={{ top: 0, right: 10, left: -20, bottom: 8 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+        <XAxis dataKey="category" tick={{ fontSize: 10, fill: '#475569' }} angle={-18} textAnchor="end" height={55} interval={0} />
+        <YAxis tick={{ fontSize: 10, fill: '#475569' }} allowDecimals={false} />
+        <Tooltip content={<AnalyticsTooltip />} />
+        <Bar dataKey="count" name="Count" fill={color} radius={[3, 3, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
 
-  // 4. Security Events
-  const securityEventsData = useMemo(() => {
-    const counts = { Critical: 0, High: 0, Medium: 0, Low: 0 };
-    state.securityEvents.forEach(e => {
-      if (counts[e.severity] !== undefined) counts[e.severity]++;
-    });
-    return Object.entries(counts).map(([month, events]) => ({ month, events }));
-  }, [state.securityEvents]);
+function TrendChart({ data, color = '#0369A1' }) {
+  if (!data.length) return <EmptyChart />;
+  return (
+    <ResponsiveContainer width="100%" height={210}>
+      <LineChart data={data} margin={{ top: 0, right: 10, left: -20, bottom: 8 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+        <XAxis dataKey="bucket" tick={{ fontSize: 10, fill: '#475569' }} />
+        <YAxis tick={{ fontSize: 10, fill: '#475569' }} allowDecimals={false} />
+        <Tooltip content={<AnalyticsTooltip />} />
+        <Line type="monotone" dataKey="count" name="Count" stroke={color} strokeWidth={2} dot={{ r: 3 }} />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
 
-  // 5. AI Confidence
-  const aiConfidenceData = useMemo(() => {
-    let high = 0;
-    let med = 0;
-    let low = 0;
-    state.documents.forEach(d => {
-      const conf = d.aiClassification?.confidence || 90;
-      if (conf >= 90) high++;
-      else if (conf >= 70) med++;
-      else low++;
-    });
-    return [
-      { range: '90-100%', count: high },
-      { range: '70-89%', count: med },
-      { range: '<70%', count: low },
-    ];
-  }, [state.documents]);
-
-  // 6. Evidence Transfers
-  const evidenceTransfersData = useMemo(() => {
-    const months = ['May', 'Jun', 'Jul', 'Aug', 'Sep'];
-    const totalCustodyEvents = state.evidence.reduce((acc, e) => acc + (e.custodyChain?.length || 0), 0);
-    return months.map((month, idx) => ({
-      month,
-      transfers: idx === months.length - 1 ? totalCustodyEvents : Math.max(0, totalCustodyEvents - (months.length - 1 - idx)),
-    }));
-  }, [state.evidence]);
-
-  // 7. Documents by Case
-  const documentsByCase = useMemo(() => {
-    const map = {};
-    state.documents.forEach(d => {
-      const c = d.caseNumber || d.caseId || 'Unassigned';
-      map[c] = (map[c] || 0) + 1;
-    });
-    const res = Object.entries(map).map(([caseNum, docs]) => ({ case: caseNum, docs }));
-    return res.length > 0 ? res : [{ case: 'No Cases', docs: 0 }];
-  }, [state.documents]);
+function IntegrityChart({ integrity }) {
+  const data = [
+    { category: 'Verified', count: integrity.verified, color: '#15803D' },
+    { category: 'Failed/Mismatch', count: integrity.failed_or_mismatch, color: '#B91C1C' },
+    { category: 'Pending/Unknown', count: integrity.pending_or_unknown, color: '#B45309' },
+  ];
+  const total = data.reduce((sum, item) => sum + item.count, 0);
+  if (!total) return <EmptyChart />;
 
   return (
-    <div className="p-5">
-      <PageHeader
-        title="Analytics & Operational Intelligence"
-        subtitle="Live database-backed telemetry and operational analytics"
-        breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Analytics' }]}
-      />
-
-      {/* Summary Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-5">
-        {[
-          { label: 'Total Documents', value: state.documents.length },
-          { label: 'Total Cases', value: state.cases.length },
-          { label: 'Evidence Items', value: state.evidence.length },
-          { label: 'Audit Events', value: state.auditEvents.length },
-          { label: 'Security Events', value: state.securityEvents.length },
-        ].map(m => (
-          <div key={m.label} className="bg-white border border-[#E2E8F0] rounded-lg p-3 text-center">
-            <div className="text-xl font-bold text-[#0F2747]">{m.value}</div>
-            <div className="text-xs text-[#475569] mt-0.5">{m.label}</div>
+    <div className="flex items-center gap-4 min-h-52">
+      <ResponsiveContainer width="52%" height={180}>
+        <PieChart>
+          <Pie data={data} dataKey="count" nameKey="category" cx="50%" cy="50%" innerRadius={42} outerRadius={68} paddingAngle={2}>
+            {data.map((item) => <Cell key={item.category} fill={item.color} />)}
+          </Pie>
+          <Tooltip content={<AnalyticsTooltip />} />
+        </PieChart>
+      </ResponsiveContainer>
+      <div className="space-y-2 text-xs min-w-0">
+        {data.map((item) => (
+          <div key={item.category} className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+            <span className="text-slate-600 truncate">{item.category}</span>
+            <span className="font-bold text-slate-800">{item.count}</span>
           </div>
         ))}
       </div>
+    </div>
+  );
+}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        {/* Documents by Type */}
-        <Card>
-          <div className="text-xs font-semibold text-[#475569] uppercase tracking-wide mb-4">Documents by Type</div>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={documentsByType} margin={{ top: 0, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-              <XAxis dataKey="type" tick={{ fontSize: 10, fill: '#475569' }} angle={-20} textAnchor="end" height={50} />
-              <YAxis tick={{ fontSize: 10, fill: '#475569' }} />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="count" fill="#0F2747" radius={[2, 2, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </Card>
-
-        {/* Upload Activity */}
-        <Card>
-          <div className="text-xs font-semibold text-[#475569] uppercase tracking-wide mb-4">Upload Activity (Timeline)</div>
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={uploadActivity} margin={{ top: 0, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-              <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#475569' }} />
-              <YAxis tick={{ fontSize: 10, fill: '#475569' }} />
-              <Tooltip content={<CustomTooltip />} />
-              <Line type="monotone" dataKey="uploads" stroke="#0F2747" strokeWidth={2} dot={{ r: 3 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </Card>
-
-        {/* Integrity Results */}
-        <Card>
-          <div className="text-xs font-semibold text-[#475569] uppercase tracking-wide mb-4">Integrity Verification Results</div>
-          <div className="flex items-center gap-4">
-            <ResponsiveContainer width="50%" height={160}>
-              <PieChart>
-                <Pie data={integrityResults} cx="50%" cy="50%" innerRadius={40} outerRadius={65} dataKey="value" paddingAngle={2}>
-                  {integrityResults.map((entry, i) => (
-                    <Cell key={i} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip content={<CustomTooltip />} />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="flex flex-col gap-2">
-              {integrityResults.map(item => (
-                <div key={item.name} className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-                  <span className="text-xs text-[#475569]">{item.name}</span>
-                  <span className="text-xs font-bold text-[#1E293B]">{item.value}</span>
-                </div>
-              ))}
-            </div>
+function RecentActivity({ items }) {
+  if (!items.length) return <EmptyChart />;
+  return (
+    <div className="divide-y divide-slate-100">
+      {items.map((item) => (
+        <div key={item.category} className="py-3 flex items-center justify-between gap-4 text-xs">
+          <div className="min-w-0">
+            <div className="font-semibold text-slate-800 truncate">{item.category}</div>
+            <div className="text-slate-500 mt-0.5">Latest: {formatDateTime(item.latest_occurred_at)}</div>
           </div>
-        </Card>
+          <span className="shrink-0 font-bold text-cyan-800 bg-cyan-50 border border-cyan-100 px-2 py-1 rounded-md">{item.event_count}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
-        {/* Security Events */}
-        <Card>
-          <div className="text-xs font-semibold text-[#475569] uppercase tracking-wide mb-4">Security Incidents by Severity</div>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={securityEventsData} margin={{ top: 0, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-              <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#475569' }} />
-              <YAxis tick={{ fontSize: 10, fill: '#475569' }} />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="events" fill="#B91C1C" radius={[2, 2, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </Card>
+export default function Analytics() {
+  const [windowDays, setWindowDays] = useState(30);
+  const [analytics, setAnalytics] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [backgroundError, setBackgroundError] = useState(null);
+  const analyticsRef = useRef(null);
+  const requestInFlightRef = useRef(false);
+  const requestIdRef = useRef(0);
+  const abortControllerRef = useRef(null);
 
-        {/* AI Confidence Distribution */}
-        <Card>
-          <div className="text-xs font-semibold text-[#475569] uppercase tracking-wide mb-4">AI Extraction Confidence</div>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={aiConfidenceData} margin={{ top: 0, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-              <XAxis dataKey="range" tick={{ fontSize: 10, fill: '#475569' }} />
-              <YAxis tick={{ fontSize: 10, fill: '#475569' }} />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="count" fill="#0369A1" radius={[2, 2, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </Card>
+  const cancelActiveRequest = useCallback(() => {
+    requestIdRef.current += 1;
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    requestInFlightRef.current = false;
+  }, []);
 
-        {/* Evidence Transfers */}
-        <Card>
-          <div className="text-xs font-semibold text-[#475569] uppercase tracking-wide mb-4">Evidence Custody Chain Transfers</div>
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={evidenceTransfersData} margin={{ top: 0, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-              <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#475569' }} />
-              <YAxis tick={{ fontSize: 10, fill: '#475569' }} />
-              <Tooltip content={<CustomTooltip />} />
-              <Line type="monotone" dataKey="transfers" stroke="#15803D" strokeWidth={2} dot={{ r: 3 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </Card>
+  const loadAnalytics = useCallback(async () => {
+    if (requestInFlightRef.current) return;
 
-        {/* Documents by Case */}
-        <Card className="lg:col-span-2">
-          <div className="text-xs font-semibold text-[#475569] uppercase tracking-wide mb-4">Document Count by Case</div>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={documentsByCase} margin={{ top: 0, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-              <XAxis dataKey="case" tick={{ fontSize: 10, fill: '#475569' }} />
-              <YAxis tick={{ fontSize: 10, fill: '#475569' }} />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="docs" fill="#475569" radius={[2, 2, 0, 0]}>
-                {documentsByCase.map((_, i) => (
-                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+    const requestId = requestIdRef.current + 1;
+    const controller = new AbortController();
+    const hasExistingData = Boolean(analyticsRef.current);
+    requestIdRef.current = requestId;
+    requestInFlightRef.current = true;
+    abortControllerRef.current = controller;
+
+    if (hasExistingData) {
+      setRefreshing(true);
+      setBackgroundError(null);
+    } else {
+      setLoading(true);
+      setError(null);
+    }
+
+    try {
+      const response = await api.getOperationalAnalytics(windowDays, { signal: controller.signal });
+      if (requestId !== requestIdRef.current) return;
+
+      analyticsRef.current = response;
+      setAnalytics(response);
+      setError(null);
+      setBackgroundError(null);
+    } catch (requestError) {
+      if (requestError.name === 'AbortError' || requestId !== requestIdRef.current) return;
+
+      const errorDetails = {
+        status: requestError.status,
+        message: requestError.message || 'Unable to load operational analytics.',
+      };
+      if (analyticsRef.current) {
+        setBackgroundError(errorDetails);
+      } else {
+        setError(errorDetails);
+      }
+    } finally {
+      if (requestId === requestIdRef.current) {
+        requestInFlightRef.current = false;
+        abortControllerRef.current = null;
+        setLoading(false);
+        setRefreshing(false);
+      }
+    }
+  }, [windowDays]);
+
+  useEffect(() => {
+    loadAnalytics();
+    const pollingInterval = window.setInterval(loadAnalytics, 30000);
+
+    return () => {
+      window.clearInterval(pollingInterval);
+      cancelActiveRequest();
+    };
+  }, [cancelActiveRequest, loadAnalytics]);
+
+  const accessRestricted = error?.status === 401 || error?.status === 403;
+  const backgroundAccessRestricted = backgroundError?.status === 401 || backgroundError?.status === 403;
+
+  return (
+    <div className="space-y-5">
+      <PageHeader title="Analytics & Operational Intelligence" subtitle="Authorized, metadata-only operational telemetry" breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Analytics' }]} />
+
+      <Card className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="text-sm font-semibold text-slate-800">Analytics window</div>
+          <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+            <span>{analytics?.generated_at ? `Last updated ${formatDateTime(analytics.generated_at)}` : 'Select a period to load authorized analytics.'}</span>
+            {refreshing && <span className="inline-flex items-center gap-1 text-cyan-700"><RefreshCw size={11} className="animate-spin" /> Refreshing</span>}
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+            {RANGE_OPTIONS.map((days) => (
+              <button key={days} type="button" onClick={() => setWindowDays(days)} disabled={loading} className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors disabled:cursor-not-allowed ${windowDays === days ? 'bg-[#0F2747] text-white shadow-sm' : 'text-slate-600 hover:bg-white'}`}>
+                {days} Days
+              </button>
+            ))}
+          </div>
+          <button type="button" onClick={loadAnalytics} disabled={loading || refreshing} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60">
+            <RefreshCw size={13} className={loading || refreshing ? 'animate-spin' : ''} /> Refresh
+          </button>
+        </div>
+      </Card>
+
+      {loading && <Card className="py-16 text-center"><RefreshCw size={24} className="mx-auto text-cyan-700 animate-spin" /><div className="mt-3 text-sm font-semibold text-slate-700">Loading authorized analytics…</div><div className="mt-1 text-xs text-slate-500">Querying current aggregate telemetry for the selected period.</div></Card>}
+
+      {!loading && error && (
+        <Card className="py-12 text-center">
+          {accessRestricted ? <LockKeyhole size={28} className="mx-auto text-amber-600" /> : <AlertTriangle size={28} className="mx-auto text-rose-600" />}
+          <div className="mt-3 text-sm font-semibold text-slate-800">{accessRestricted ? 'Analytics access is restricted' : 'Analytics could not be loaded'}</div>
+          <div className="mt-1 text-xs text-slate-500 max-w-md mx-auto">{accessRestricted ? 'Your account does not have the required role and Level 4 clearance for operational analytics.' : error.message}</div>
+          {!accessRestricted && <button type="button" onClick={loadAnalytics} className="mt-4 text-xs font-semibold text-cyan-700 hover:text-cyan-800 hover:underline">Try again</button>}
         </Card>
-      </div>
+      )}
+
+      {!loading && analytics && backgroundError && (
+        <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs ${backgroundAccessRestricted ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-rose-200 bg-rose-50 text-rose-800'}`}>
+          {backgroundAccessRestricted ? <LockKeyhole size={14} /> : <AlertTriangle size={14} />}
+          <span>{backgroundAccessRestricted ? 'Analytics access is restricted. Showing the last authorized result.' : `Unable to refresh analytics. Showing the last updated result. ${backgroundError.message}`}</span>
+        </div>
+      )}
+
+      {!loading && analytics && (
+        <>
+          <section>
+            <h2 className="text-sm font-bold text-slate-800 mb-3">Overview</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
+              {[
+                { label: 'Total Documents', value: analytics.overview.total_documents, icon: FileText, color: 'text-blue-700 bg-blue-50' },
+                { label: 'Active Cases', value: analytics.overview.active_cases, icon: FolderOpen, color: 'text-indigo-700 bg-indigo-50' },
+                { label: 'Active Users', value: analytics.overview.active_users, icon: Users, color: 'text-cyan-700 bg-cyan-50' },
+                { label: 'Uploads in Period', value: analytics.overview.uploads_in_period, icon: Upload, color: 'text-emerald-700 bg-emerald-50' },
+                { label: 'Denied Access', value: analytics.overview.denied_access_attempts_in_period, icon: LockKeyhole, color: 'text-amber-700 bg-amber-50' },
+                { label: 'Security Events', value: analytics.overview.security_events_in_period, icon: ShieldAlert, color: 'text-rose-700 bg-rose-50' },
+              ].map((metric) => {
+                const Icon = metric.icon;
+                return <Card key={metric.label} className="p-3"><div className={`w-7 h-7 rounded-lg flex items-center justify-center ${metric.color}`}><Icon size={15} /></div><div className="text-xl font-bold text-[#0F2747] mt-3">{metric.value}</div><div className="text-[11px] font-medium text-slate-500 mt-0.5">{metric.label}</div></Card>;
+              })}
+            </div>
+          </section>
+
+          <section><h2 className="text-sm font-bold text-slate-800 mb-3">Document Analytics</h2><div className="grid grid-cols-1 lg:grid-cols-2 gap-4"><ChartCard title="Documents by Type"><DistributionChart data={analytics.documents_by_type} /></ChartCard><ChartCard title="Document Upload Trend"><TrendChart data={analytics.document_upload_trend} /></ChartCard></div></section>
+          <section><h2 className="text-sm font-bold text-slate-800 mb-3">Case Analytics</h2><ChartCard title="Cases by Status"><DistributionChart data={analytics.cases_by_status} color="#475569" /></ChartCard></section>
+          <section><h2 className="text-sm font-bold text-slate-800 mb-3">Evidence Analytics</h2><div className="grid grid-cols-1 lg:grid-cols-3 gap-4"><ChartCard title="Evidence by Status"><DistributionChart data={analytics.evidence_by_status} color="#7C3AED" /></ChartCard><ChartCard title="Evidence by Type"><DistributionChart data={analytics.evidence_by_type} color="#0369A1" /></ChartCard><ChartCard title="Custody Activity Trend"><TrendChart data={analytics.custody_activity_trend} color="#15803D" /></ChartCard></div></section>
+          <section><h2 className="text-sm font-bold text-slate-800 mb-3">Integrity</h2><ChartCard title="Integrity Verification Results"><IntegrityChart integrity={analytics.integrity} /></ChartCard></section>
+          <section><h2 className="text-sm font-bold text-slate-800 mb-3">Security</h2><div className="grid grid-cols-1 lg:grid-cols-3 gap-4"><ChartCard title="Security Events by Severity"><DistributionChart data={analytics.security_events_by_severity} color="#B91C1C" /></ChartCard><ChartCard title="Security Events by Status"><DistributionChart data={analytics.security_events_by_status} color="#B45309" /></ChartCard><ChartCard title="Security Event Trend"><TrendChart data={analytics.security_event_trend} color="#B91C1C" /></ChartCard></div></section>
+          <section><h2 className="text-sm font-bold text-slate-800 mb-3">Activity</h2><div className="grid grid-cols-1 lg:grid-cols-3 gap-4"><ChartCard title="Activity by Category"><DistributionChart data={analytics.activity_by_category} color="#0F2747" /></ChartCard><ChartCard title="Activity Trend"><TrendChart data={analytics.activity_trend} color="#0891B2" /></ChartCard><ChartCard title="Recent Activity Categories"><RecentActivity items={analytics.recent_activity_categories} /></ChartCard></div></section>
+        </>
+      )}
     </div>
   );
 }

@@ -1,7 +1,10 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AppProvider, useApp } from './context/AppContext';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { AppProvider } from './context/AppContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
+import Signup from './pages/Signup';
+import RegistrationRequests from './pages/RegistrationRequests';
 import Profile from './pages/Profile';
 import Dashboard from './pages/Dashboard';
 import Cases from './pages/Cases';
@@ -19,14 +22,24 @@ import AccessControl from './pages/AccessControl';
 import Analytics from './pages/Analytics';
 import Settings from './pages/Settings';
 
-function ProtectedRoutes() {
-  const { state } = useApp();
-  if (state.loading) {
-    return <div className="min-h-screen flex items-center justify-center text-sm text-slate-400">Loading NyayaVault...</div>;
+function ApplicationRoutes() {
+  const { loading, isAuthenticated } = useAuth();
+  const location = useLocation();
+
+  if (loading) {
+    return <div className="min-h-screen bg-[#071322] flex items-center justify-center text-white">Loading secure session...</div>;
   }
-  if (!state.isAuthenticated) {
-    return <Navigate to="/login" replace />;
+
+  if (!isAuthenticated) {
+    return (
+      <Routes>
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="*" element={<Navigate to="/login" state={{ from: location.pathname }} replace />} />
+      </Routes>
+    );
   }
+
   return (
     <Layout>
       <Routes>
@@ -45,6 +58,7 @@ function ProtectedRoutes() {
         <Route path="/audit" element={<AuditTrail />} />
         <Route path="/certificates" element={<Certificates />} />
         <Route path="/access-control" element={<AccessControl />} />
+        <Route path="/registration-requests" element={<AdminOnly><RegistrationRequests /></AdminOnly>} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
@@ -53,15 +67,19 @@ function ProtectedRoutes() {
   );
 }
 
+function AdminOnly({ children }) {
+  const { user } = useAuth();
+  return user?.role === 'Administrator' ? children : <Navigate to="/dashboard" replace />;
+}
+
 export default function App() {
   return (
-    <AppProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/*" element={<ProtectedRoutes />} />
-        </Routes>
-      </BrowserRouter>
-    </AppProvider>
+    <AuthProvider>
+      <AppProvider>
+        <BrowserRouter>
+          <ApplicationRoutes />
+        </BrowserRouter>
+      </AppProvider>
+    </AuthProvider>
   );
 }
