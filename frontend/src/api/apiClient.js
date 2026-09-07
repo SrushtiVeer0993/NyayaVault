@@ -50,11 +50,13 @@ async function request(endpoint, options = {}) {
       throw err;
     }
 
-    // If blob download
-    const contentType = res.headers.get('content-type');
-    if (contentType && (contentType.includes('application/pdf') || contentType.includes('application/octet-stream'))) {
+    // If not JSON, treat as a binary/blob response (images, video, audio, pdf, etc.)
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
       return await res.blob();
     }
+
+    return await res.json();
 
     return await res.json();
   } catch (error) {

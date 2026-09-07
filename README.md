@@ -55,7 +55,8 @@ Nyayavault/
 │   ├── vite.config.js            # Vite build configuration
 │   └── Dockerfile                # Frontend container configuration
 │
-├── backend/                      # Python 3.11+ FastAPI + SQLAlchemy + SQLite/PostgreSQL
+├── backend/                      # Python 3.11+ FastAPI + SQLAlchemy + PostgreSQL + MinIO + Qdrant
+
 │   ├── app/
 │   │   ├── main.py               # FastAPI entrypoint, CORS, lifespan startup & DB seed
 │   │   ├── config/               # Pydantic Settings & environment config
@@ -136,8 +137,8 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
-> **Automatic SQLite Initialization:**  
-> On startup, the backend automatically creates `nyayavault.db` using SQLite, initializes all database tables, and seeds realistic test cases, custody chains, integrity records, and administrative accounts.
+> **Database provisioning is explicit:**  
+> The backend does not create tables or seed users when it starts. For Supabase, run [`backend/supabase_bootstrap.sql`](backend/supabase_bootstrap.sql) in the Supabase SQL Editor first. For local SQLite development, the test fixture provisions its isolated database explicitly.
 
 #### 2. Run Backend Tests
 
@@ -159,6 +160,40 @@ npm run dev
 ```
 
 The frontend application will be live at `http://localhost:5173`.
+
+### Supabase PostgreSQL Setup
+
+The backend uses SQLAlchemy to connect directly to Supabase PostgreSQL. Configure the backend `.env` with the Supabase database connection string, not only the project URL and anon key:
+
+```env
+DATABASE_URL=postgresql+asyncpg://postgres:<database-password>@<project-ref>.pooler.supabase.com:6543/postgres
+SECRET_KEY=<long-random-jwt-secret>
+SUPABASE_URL=https://<project-ref>.supabase.co
+SUPABASE_ANON_KEY=<supabase-anon-key>
+```
+
+The anon key is not used for administrator approval or database writes. Keep the database password and JWT secret server-side.
+
+Before starting the backend, open the Supabase SQL Editor and run [`backend/supabase_bootstrap.sql`](backend/supabase_bootstrap.sql). This script creates the current application schema, roles, permissions, and the initial administrator account. It is idempotent and can be safely rerun.
+
+The bootstrap administrator is:
+
+```text
+Email: admin@nyayavault.gov.in
+Password: NyayaVault@2026
+```
+
+Change the administrator password after the first login. The API itself does not create tables, insert demo users, or alter the database during startup.
+
+### Account Request and Approval Workflow
+
+1. An applicant submits `POST /api/v1/auth/signup` for Investigating Officer, Forensic Staff, or Senior Officer.
+2. The request is stored as `PENDING`; no login account is created yet.
+3. The seeded administrator (`admin@nyayavault.gov.in`) signs in and reviews `GET /api/v1/auth/registration-requests`.
+4. The administrator approves or rejects the request using the corresponding `/approve` or `/reject` endpoint.
+5. Approval creates the active user with role-derived clearance. Only then can the applicant sign in.
+
+The frontend provides `/signup`, `/login`, and the administrator-only `/registration-requests` screen for testing this workflow.
 
 ---
 

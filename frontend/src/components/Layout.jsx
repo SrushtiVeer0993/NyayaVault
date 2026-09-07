@@ -34,8 +34,7 @@ const ROLE_COLORS = {
 };
 
 export default function Layout({ children }) {
-  const { state, switchRole, markNotificationRead, markAllNotificationsRead } = useApp();
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const { state, logout, markNotificationRead, markAllNotificationsRead } = useApp();  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const hoverTimeoutRef = useRef(null);
   const [roleMenuOpen, setRoleMenuOpen] = useState(false);
@@ -191,7 +190,10 @@ export default function Layout({ children }) {
 
           {/* User Profile Card */}
           <div className="pt-2 border-t border-white/10 mt-1">
-            <div className={`flex items-center gap-2.5 px-2 py-1.5 rounded-xl ${isHovered ? '' : 'justify-center'}`}>
+            <div
+              onClick={() => navigate('/profile')}
+              className={`flex items-center gap-2.5 px-2 py-1.5 rounded-xl cursor-pointer hover:bg-white/5 transition-colors ${isHovered ? '' : 'justify-center'}`}
+            >
               <div
                 className="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-600 to-indigo-700 border border-white/20 flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-sm"
                 title={state.currentUser.name}
@@ -343,7 +345,7 @@ export default function Layout({ children }) {
               )}
             </div>
 
-            {/* Role Switcher Pill */}
+            {/* Account Menu */}
             <div className="relative">
               <button
                 onClick={() => { setRoleMenuOpen(!roleMenuOpen); setNotifOpen(false); }}
@@ -367,27 +369,24 @@ export default function Layout({ children }) {
               </button>
 
               {roleMenuOpen && (
-                <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden py-1">
-                  <div className="px-4 py-2 border-b border-slate-100 bg-slate-50/70">
-                    <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Switch Officer Persona</div>
+                <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden py-1">
+                  <div className="px-4 py-2.5 border-b border-slate-100 bg-slate-50/70">
+                    <div className="text-xs font-bold text-slate-800">{state.currentUser.name}</div>
+                    <div className="text-[10px] text-slate-500 mt-0.5">{state.currentUser.email}</div>
                   </div>
-                  <div className="p-1 space-y-0.5">
-                    {Object.values(ROLES).map(role => (
-                      <button
-                        key={role}
-                        onClick={() => { switchRole(role); setRoleMenuOpen(false); }}
-                        className={`flex items-center justify-between w-full px-3 py-2 text-xs rounded-lg transition-colors cursor-pointer ${
-                          state.currentRole === role
-                            ? 'bg-slate-100 font-bold text-slate-900'
-                            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                        }`}
-                      >
-                        <span>{role}</span>
-                        {state.currentRole === role && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-cyan-600" />
-                        )}
-                      </button>
-                    ))}
+                  <div className="p-1">
+                    <button
+                      onClick={() => { setRoleMenuOpen(false); navigate('/profile'); }}
+                      className="flex items-center gap-2 w-full px-3 py-2 text-xs rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer"
+                    >
+                      <User size={14} /> View Profile
+                    </button>
+                    <button
+                      onClick={() => { setRoleMenuOpen(false); logout(); navigate('/login'); }}
+                      className="flex items-center gap-2 w-full px-3 py-2 text-xs rounded-lg text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                    >
+                      <LogOut size={14} /> Sign Out
+                    </button>
                   </div>
                 </div>
               )}
