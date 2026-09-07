@@ -21,9 +21,10 @@ class Settings(BaseSettings):
     # Relational Database (Supabase PostgreSQL)
     DATABASE_URL: str
 
-    # Optional Supabase client metadata. Backend writes use DATABASE_URL, not the anon key.
-    SUPABASE_URL: str = ""
-    SUPABASE_ANON_KEY: str = ""
+    # Optional Supabase client metadata (used by frontend/SDK integrations).
+    # Backend writes use DATABASE_URL directly — not the anon key.
+    SUPABASE_URL: Optional[str] = None
+    SUPABASE_ANON_KEY: Optional[str] = None
 
     # JWT
     JWT_ALGORITHM: str = "HS256"
@@ -71,8 +72,6 @@ class Settings(BaseSettings):
     GROQ_API_KEY: Optional[str] = None
     GROQ_MODEL: str = "llama-3.3-70b-versatile"
     OPENAI_API_KEY: Optional[str] = None
-    SUPABASE_URL: Optional[str] = None
-    SUPABASE_ANON_KEY: Optional[str] = None
 
 
     # CORS

@@ -1,7 +1,7 @@
 version: "3.8"
 
 services:
-  # 1. Frontend: React + Vite + Tailwind
+  # 1. Frontend: React + Vite
   frontend:
     build:
       context: ./frontend
@@ -13,7 +13,9 @@ services:
     depends_on:
       - backend
 
-  # 2. Backend: FastAPI + AI/OCR + Blockchain Abstraction
+  # 2. Backend: FastAPI
+  # Relational database is Supabase (managed cloud PostgreSQL).
+  # Configure DATABASE_URL, SUPABASE_URL and SUPABASE_ANON_KEY in backend/.env.
   backend:
     build:
       context: ./backend
@@ -33,8 +35,6 @@ services:
       - QDRANT_API_KEY=
       - REDIS_URL=redis://redis:6379/0
     depends_on:
-      postgres:
-        condition: service_healthy
       minio:
         condition: service_started
       qdrant:
@@ -43,26 +43,10 @@ services:
         condition: service_started
     volumes:
       - ./backend/storage_data:/app/storage_data
+    env_file:
+      - ./backend/.env
 
-  # 3. Relational Database: PostgreSQL
-  postgres:
-    image: postgres:15-alpine
-    restart: always
-    environment:
-      POSTGRES_USER: nyayavault
-      POSTGRES_PASSWORD: nyayavault
-      POSTGRES_DB: nyayavault
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U nyayavault -d nyayavault"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  # 4. Secure Object Storage: MinIO
+  # 3. Secure Object Storage: MinIO
   minio:
     image: minio/minio:latest
     restart: always
@@ -76,7 +60,7 @@ services:
     volumes:
       - minio_data:/data
 
-  # 5. Vector Database: Qdrant
+  # 4. Vector Database: Qdrant
   qdrant:
     image: qdrant/qdrant:latest
     restart: always
@@ -88,7 +72,7 @@ services:
     environment:
       QDRANT__SERVICE__GRPC_PORT: 6334
 
-  # 6. Task Broker & Cache: Redis
+  # 5. Task Broker & Cache: Redis
   redis:
     image: redis:7-alpine
     restart: always
@@ -98,8 +82,6 @@ services:
       - redis_data:/data
 
 volumes:
-  postgres_data:
   minio_data:
   qdrant_data:
   redis_data:
-
